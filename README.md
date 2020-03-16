@@ -77,37 +77,51 @@ For either installation method, **nimpress** is configured with the following co
     nimpress --version
 
   Options:
-    -h --help         Show this screen.
-    --version         Show version.
-    --cov=<path>      Path to a BED file supplying genome regions that
-                      have been reliably genotyped in the genotypes 
-                      file.
-    --imp-locus=<m>   Imputation to apply for whole loci which are 
-                      either not in the sequenced BED regions, or fail
-                      (QUAL flag or too many samples with missing 
-                      genotype). Valid values are ps, homref, fail 
-                      [default: ps].
-    --imp-sample=<m>  Imputation to apply for an individual sample 
-                      with missing genotype. Valid values are ps, 
-                      homref, fail, int_fail, int_ps [default: int_ps]
-    --maxmis=<f>      Maximum fraction of samples with missing 
-                      genotypes allowed at a locus.  Loci containing 
-                      more than this fraction of samples missing will 
-                      be considered bad, and have all genotypes (even 
-                      non-missing ones) imputed [default: 0.05].
-    --mincs=<n>       Minimum number of genotypes.vcf samples without 
-                      missing genotype at a locus for this locus to be
-                      eligible for internal imputation [default: 100].
-    --afmisp=<f>      p-value threshold for warning about allele 
-                      frequency mismatch between the polygenic score 
-                      and the supplied cohort [default: 0.001].
+    -h --help          Show this screen.
+    --version          Show version.
+    --cov=<path>       Path to a BED file supplying genome regions 
+                       that have been genotyped in the genotypes file.
+    --imp-locus=<m>    Imputation to apply for whole loci which are 
+                       either not in the sequenced BED regions, or 
+                       fail (too many samples with missing genotype, 
+                       as set by --maxmis, or failing VCF QUAL field 
+                       if --ignorefilt is not set). Valid values are 
+                       ps, homref, fail, ignore [default: ps].
+    --imp-missing=<m>  Imputation to apply for loci which are in the 
+                       sequenced BED regions (and thus should have 
+                       been genotyped), but are completely missing 
+                       from the VCF. Valid values are homref, ignore 
+                       [default: homref].
+    --imp-sample=<m>   Imputation to apply for an individual sample 
+                       with missing genotype. Valid values are ps, 
+                       homref, fail, int_fail, int_ps 
+                       [default: int_ps].
+    --maxmis=<f>       Maximum fraction of samples with missing 
+                       genotypes allowed at a locus. Loci containing 
+                       more than this fraction of samples missing will
+                       be considered bad, and have all genotypes (even
+                       non-missing ones) imputed [default: 0.05].
+    --mincs=<n>        Minimum number of genotypes.vcf samples without
+                       missing genotype at a locus for this locus to 
+                       be eligible for internal imputation [default: 
+                       100].
+    --afmisp=<f>       p-value threshold for warning about allele 
+                       frequency mismatch between the polygenic score 
+                       and the supplied cohort [default: 0.001].
+    --ignorefilt       Ignore the VCF FILTER field. If set, all 
+                       variants in the VCF will be used regardless of 
+                       FILTER field contents. If not set, variants 
+                       with a FILTER field other than "." or "PASS" 
+                       will always be imputed.
 
   Imputation methods:
-  ps        Impute with dosage given by the polygenic score effect 
+  ps        Impute with dosage based on the polygenic score effect 
             allele frequency.
   homref    Impute to homozygous reference genotype.
   fail      Do not impute, but fail. Failed samples will have a score 
             of "nan".
+  ignore    Completely ignore missing loci, as if they were never in 
+            the score definition.
   int_ps    Impute with dosage calculated from non-missing samples in 
             the cohort. At least --mincs non-missing samples must be 
             available for this method to be used, else it will fall 
