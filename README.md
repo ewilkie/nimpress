@@ -12,19 +12,19 @@ The static binary or Docker container will suit most users. However, if you wish
 * `docopt` >= 0.6.8
 * `hts` >= 0.2.21
 * `lapper` >= 0.1.5
+
 A working installation of *htslib* (http://www.htslib.org/) is also required.
 
 The easiest way to set up a suitable *nim* environment is using *nimble*:
 1. Ensure you have a working installation of *htslib* (http://www.htslib.org/).
 2. Install *nim* following the directions at https://nim-lang.org/. This will also install the *nimble* package manager
-3. Clone this repository
+3. Clone this repository `git clone https://github.com/mpinese/nimpress.git`
 4. Inside the **nimpress** directory run `nimble install -d` to install all dependencies.
-5. Verify the installation by running `nimpress -h`
 
 ## Installation
 
 ### Static pre-built binary (Linux only)
-1. Download the latest pre-built binary from the [releases page](https://github.com/mpinese/nimpress/releases "releases page"), and save to a location of your choice.
+1. Download the latest pre-built binary from the [releases page](https://github.com/mpinese/nimpress/releases "Nimpress Releases Page"), and save to a location of your choice.
 2. Depending on your system, you may need to mark the downloaded file as executable with `chmod +x nimpress-x86_64`
 3. Verify a successful installation with `./nimpress-x86-64`; you should see a brief usage message.
 
@@ -44,7 +44,7 @@ The easiest way to set up a suitable *nim* environment is using *nimble*:
 Specifics of usage depend on how **nimpress** was installed, either as a native (source install or static binary) or Docker install:
 
 ### Source install or static binary
-**nimpress** is run as a standard binary, with `nimpress`. Command line options are supplied as detailed in [Shared options](#shared-options) below.
+**nimpress** is run as a standard binary from the command line, with `nimpress` or `./nimpress-x86_64`. Command line options are supplied as detailed in [Shared options](#shared-options) below.
 
 ### Docker
 If running **nimpress** inside a Docker container, you must supply input files (genotype vcf/bcf with its index, and polygenic score file) to the container so that **nimpress** can access them. This can be accomplished in the `docker run` command as:
@@ -55,7 +55,7 @@ docker run \
   -v <local_path_to_genotype_index>:/root/genotypes.<bcf|vcf.gz>.<csi|tbi> \
   -t mpinese/nimpress <nimpress options here> /root/ps.scores /root/genotypes.<bcf|vcf.gz>
 ```
-A coverage BED, if used, would also be supplied with a -v flag. Other nimpress options would be supplied following the [Shared options](#shared-options) section below.
+A coverage BED, if used, would also be supplied with a `-v` flag. Other nimpress options would be supplied following the [Shared options](#shared-options) section below.
 
 For example, if you have genotypes in a bcf file `/home/user/mycohort.bcf` with index `/home/user/mycohort.bcf.csi`, a genotyping coverage bed in `/home/user/genotyped_regions.bed`, and wish to assess the Wood *et al* height PS in `/home/user/nimpress/scores/wood-25282103-height.scores`, you would use the command:
 ```
@@ -80,8 +80,8 @@ For either installation method, **nimpress** is configured with the following co
     -h --help         Show this screen.
     --version         Show version.
     --cov=<path>      Path to a BED file supplying genome regions that
-                      have been reliably genotyped in the 
-                      genotypes.vcf file.
+                      have been reliably genotyped in the genotypes 
+                      file.
     --imp-locus=<m>   Imputation to apply for whole loci which are 
                       either not in the sequenced BED regions, or fail
                       (QUAL flag or too many samples with missing 
@@ -154,11 +154,11 @@ where `offset` is the offset as given in the header, `beta_j` is the beta for ro
 Contributions are encouraged. Please fork this repository, make changes in your forked version, and submit a pull request.
 
 # Acknowledgements
-* @brentp for the excellent hts-nim and lapper libraries.
-* @ewilkie for preprocessing code & much debugging.
+* [Emilie Wilkie](https://github.com/ewilkie/) for preprocessing code & much debugging.
+* [Brent Pedersen](https://github.com/brentp/) for the excellent hts-nim and lapper libraries.
 
 # Contact
-Mark Pinese, Computational Biology Group, Children's Cancer Institute <MPinese@ccia.org.au>
+Mark Pinese, Computational Biology Group, Children's Cancer Institute (<MPinese@ccia.org.au>)
 
 # Licence
 MIT
