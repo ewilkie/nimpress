@@ -27,8 +27,9 @@ jobs:
       deploy:
         provider: releases
         edge: true
-        token: $GITHUB_API_KEY
+        token: $GITHUB_TOKEN
         file: nimpress-develop-x86_64
+        skip_cleanup: true
         draft: true
         overwrite: true
         on:
@@ -43,8 +44,9 @@ jobs:
       deploy:
         provider: releases
         edge: true
-        token: $GITHUB_API_KEY
+        token: $GITHUB_TOKEN
         file: nimpress-v${TRAVIS_TAG}-x86_64
+        skip_cleanup: true
         draft: false
         overwrite: false
         on:
