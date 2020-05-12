@@ -27,7 +27,7 @@ pacman::p_load(docopt)
 
 'NIMPRESS preprocess
 Usage:
-  Nimpress_preprocess.R --file=<file_to_process> (--GRCh37 | --GRCh38) [--outpath=<outpath> --offset=<offset> (-r | --blacklisted_bed=<bed>)  (--LDproxy_pop=<BG population> --LDproxy_token=<token>) ]  
+  Nimpress_preprocess.R --file=<file_to_process> (--GRCh37 | --GRCh38) [(--LDproxy_pop=<BG population> --LDproxy_token=<token>) --blacklisted_bed=<bed> --outpath=<outpath> --offset=<offset>]  
   Nimpress_preprocess.R (-h | --help)
   Nimpress_preprocess.R --version
 Arguments:
@@ -65,7 +65,7 @@ stop("just checking arguments")
 setwd("/Users/ewilkie/Documents/Polygenic/nimpress/preprocess/")
 arguments <- list()
 arguments$GRCh37 = TRUE
-arguments$r = TRUE
+arguments$blacklisted_bed = TRUE
 arguments$file = "./Example/Example_File_to_process.csv"
 arguments$LDproxy_pop="GRB"
 arguments$LDproxy_pop="cbe1b45bc8be"
