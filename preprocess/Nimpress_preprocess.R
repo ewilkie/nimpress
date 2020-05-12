@@ -1,0 +1,197 @@
+###############################
+## TO DO - might be optional ##
+###############################
+
+## with and without out master file, fo running single and multiple files
+## does Freq need to be < 1?? 
+## verbose turn off and on
+## some statisitcs
+
+##########################################
+## GWAS summary data curations pipeline ##
+##########################################
+
+## turn warnings off
+oldw <- getOption("warn")
+options(warn = -1)
+
+## load command option library
+pacman::p_load(docopt)
+
+#############
+## docopts ##
+#############
+
+## example command:  Rscript Nimpress_preprocess.R --file /Users/ewilkie/Documents/Polygenic/nimpress/preprocess/Example/Example_File_to_process.txt --GRCh37
+
+
+'NIMPRESS preprocess
+Usage:
+  Nimpress_preprocess.R --file=<file_to_process> (--GRCh37 | --GRCh38) [--outpath=<outpath> --offset=<offset> (-r | --blacklisted_bed=<bed>)  (--LDproxy_pop=<BG population> --LDproxy_token=<token>) ]  
+  Nimpress_preprocess.R (-h | --help)
+  Nimpress_preprocess.R --version
+Arguments:
+    --file=<file_to_process>     See Example folder for completed template
+                          Text file containing risk loci file in template format:
+                          <GWAS summary statistic file and path in csv format>,<description>,<citation>
+                          GWAS summary statistic file contents:
+                          rsID,Risk_allele,Freq,<OR or BETA>,P-value
+                          <rsID> = the dbSNP Reference SNP cluster ID
+                          <Risk_allele> = the allele associated with the trait or disease investigated
+                          <Freq> = popultation frequency of the risk allele
+                          <OR> or <BETA> = Odds ratio or beta respectively, all value need to be of same type
+                          <P-value> = significance value obtained from the GWAS study for that rsID
+
+    --GRCh37              use genome version GRCh37
+    --GRCh38              use genome version GRCh38
+     
+Options:
+  -h --help                         Show this screen.
+  --version                         Show version.
+  --outpath=<outpath>               Path to output location [DEFAULT: ./Nimpress_preprocess_Output]
+  --offset=<offset>                 Offset for NIMPRESS [DEFAULT: 0.0]
+  --blacklisted_bed=<bed>           Blacklisted bed region
+  --LDproxy_pop=<BG population>     Background populations for LDproxy
+  --LDproxy_token=<token>           Generate token via https://ldlink.nci.nih.gov/?tab=apiaccess
+
+    
+' -> doc
+
+arguments <- docopt(doc, version = 'NIMPRESS Preprocess for R version 4.0.0 (2020-04-24)\n')
+print(arguments)
+stop("just checking arguments")
+
+## for testing only 
+setwd("/Users/ewilkie/Documents/Polygenic/nimpress/preprocess/")
+arguments <- list()
+arguments$GRCh37 = TRUE
+arguments$r = TRUE
+arguments$file = "./Example/Example_File_to_process.csv"
+arguments$LDproxy_pop="GRB"
+arguments$LDproxy_pop="cbe1b45bc8be"
+
+##########################################
+## testing that still needs to be done: ##
+##########################################
+
+
+## GRCh38 - but need different file for that
+## with private/ non built in bed file
+
+## can't remember why this is in getrsID_info function
+#if(!is.null(g9$g8)){
+#  g9 <- g9[-which(g9$g8 == "del"),]
+#}
+
+
+###################
+## Initial setup ##
+###################
+
+###############
+## libraries ##
+###############
+
+message("[1/..] Loading libraries...")
+pacman::p_load(data.table,GenomicRanges,rentrez)
+## rentrez,bedr,LDlinkR,stringr,GenomicRanges
+
+###################
+## Genomic files ##
+###################
+
+message("[2/..] Setting up genomic environment...")
+
+## get the correct assembly file
+if(arguments$GRCh37 == TRUE){
+  gv <- "GRCh37"
+  assembly_file <- "./Suppl/GCF_000001405.13_GRCh37_assembly_report.txt"
+}else if (arguments$GRCh38 == TRUE){
+  gv <- "GRCh38"
+  assembly_file <- "./Suppl/GCF_000001405.26_GRCh38_assembly_report.txt"
+}
+
+ass <- read.table(assembly_file, header=F, sep="\t",stringsAsFactors = F)
+ass_sub <- ass[,c(3,7)]
+assembly <- ass_sub[grep("NC_", ass_sub[,2]),]
+#print(assembly)
+
+## setup blacklisted genome bed file
+bedfile = NULL
+if(arguments$r == TRUE){
+  bedfile = paste("./Suppl/", gv, "_alldifficultregions.bed", sep="")
+}else if(!is.null(arguments$blacklisted_bed)){
+  bedfile = arguments$blacklisted_bed
+}
+
+if(!is.null(bedfile)){
+  ovlp <- fread(bedfile, header = FALSE, stringsAsFactors = FALSE)
+  colnames(ovlp) <- c("chr", "start", "end")
+  gr <- makeGRangesFromDataFrame(ovlp, keep.extra.columns = TRUE)
+}
+
+
+#################
+## Input files ##
+#################
+
+message("[3/..] Reading master file...")
+
+master_file <- read.table(arguments$file, sep=",", header=T)
+master_file.list <- split(master_file, seq(nrow(master_file)))
+
+## load processing functions files
+source("./Nimpress_preprocess_functions.R")
+
+message("[4/..] Starting file processing...")
+
+## set up loop when single run is finished
+#for(f in 1:length(master_file.list)){
+#}
+f <- 1
+
+message(paste("[", 3+f ,"/..] Processing file:", master_file.list[[f]]$GWAS_summary_statistic_file_and_path, sep="" ))
+input <- master_file.list[[f]]$GWAS_summary_statistic_file_and_path
+
+## check and format input file
+gf_ok <- check_gwas_file(input)
+#print(gf_ok)
+
+## extract unique rsID
+rsID_ind <- grep("rsID", colnames(gf_ok))
+rsID <- gf_ok[,rsID_ind]
+rsIDu <- as.vector(unique(rsID))
+  
+##########################################
+## get rdID genomic location from dbSNP ##
+##########################################
+
+## list containing "rsID", "CHR", "START", "REF.ALLELE", "ALT.ALLELE" - for Risk allele check
+## this loop takes about 28.85696 / 13 = 2.219766 secs per SNPS
+ela <- Sys.time()
+rsID_loc <- list()
+
+for (rsid in 1: length(rsIDu)){
+  message(paste("Getting info for : ", rsIDu[rsid],sep=""))
+  res <- getrsID_info(rsIDu[rsid])
+  rsID_loc[[rsid]] <- res
+}
+
+ela <- Sys.time() - ela
+print(ela)
+
+rsID_loc_df <- do.call(rbind, rsID_loc)
+print(rsID_loc_df)
+
+
+#############
+## LDproxy ##
+#############
+
+## check if LDproxy is on
+## if off and bedfiles is provided - remove those that fall inside the Bedfile region
+## if on, check for for overlap 
+
+
+
+
