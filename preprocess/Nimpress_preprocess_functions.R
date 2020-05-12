@@ -118,3 +118,20 @@ getrsID_info <- function(rsid_input){
   }
   return(final_snp)
 }
+
+
+
+###################################################
+## Get coverage with blacklisted bad file region ##
+###################################################
+
+get_cov <- function(snp_info){
+  snp <- GRanges(seqnames=as.numeric(snp_info$CHR), ranges=IRanges(start=as.numeric(snp_info$START), end=as.numeric(snp_info$START)+1),starts.in.df.are.0based=TRUE)
+  hits <- findOverlaps(gr,snp)
+  if(length(hits@from) > 0){
+    bedcov = TRUE
+  }else{
+    bedcov = FALSE
+  }
+  return(bedcov)
+}

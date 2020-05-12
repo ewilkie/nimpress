@@ -119,7 +119,7 @@ if(!is.null(arguments$blacklisted_bed)){
   bedfile = arguments$blacklisted_bed
   ovlp <- fread(bedfile, header = FALSE, stringsAsFactors = FALSE)
   colnames(ovlp) <- c("chr", "start", "end")
-  gr <- makeGRangesFromDataFrame(ovlp, keep.extra.columns = TRUE)
+  gr <- makeGRangesFromDataFrame(ovlp, keep.extra.columns = TRUE,starts.in.df.are.0based=TRUE)
 }else{
   bedfile = NULL
 }
@@ -181,53 +181,26 @@ print(rsID_loc_df)
 ## Get coverage ##
 ##################
 
-## tghis obviously doesn't work with deletions
-get_cov <- function(urer,s){
-  snp <- GRanges(seqnames=as.numeric(urer[s,"CHR"]), ranges=IRanges(start=as.numeric(urer[s,"START"])-1, end=as.numeric(urer[s,"START"]), starts.in.df.are.0based))
-  hits <- findOverlaps(gr,snp)
-  if(length(hits@from) > 0){
-    bedcov = FALSE
-  }else{
-    bedcov = TRUE
-  }
-  return(bedcov)
-}
-
+## can speed this up by extracting unique and the merging? Might not make much difference 
+1.623069 / 12 = 0.13 secs per SNP
 
 ela <- Sys.time()
-
-
-rsID_loc_df <- do.call(rbind, rsID_loc)
-colnames(rsID_loc_df) <- c("CHR","START","rsID")
-urer <- rsID_loc_df
-
-
-
 if(bedfile == "NULL"){
   bedcov <- FALSE
-  urercov <- cbind(urer, cov)
+  urercov <- cbind(rsID_loc_df, bedcov)
 }else{
-  urer <- rsID_loc_df
-  cov <- vector()
-  for (s in 1:nrow(urer)){
-    nc <- get_cov(urer,s)
-    cov <- c(cov, nc)
-    
+  bedcov <- vector()
+  for (s in 1:nrow(rsID_loc_df)){
+    nc <- get_cov(rsID_loc_df[s,])
+    bedcov <- c(bedcov, nc)
   }
-  urercov <- cbind(urer, cov)
+  urercov <- cbind(rsID_loc_df, bedcov)
 }
 
 ela <- Sys.time() - ela
 print(ela)
 
-########!!!!!!!! swapped true with false since cov file type has changed
-## this is for getLDproxy function
-original_SNP <- urercov[,"rsID"]
-
-
-
-
-
+########!!!!!!!! since cov file type has changed FALSE now means that no removal
 
 #############
 ## LDproxy ##
@@ -239,10 +212,8 @@ original_SNP <- urercov[,"rsID"]
 ## check if proxy is correct
 
 
-
-## if off and bedfiles is provided - remove those that fall inside the Bedfile region
-## if on, check for for overlap 
-
-
+## if no bed file and no LDSUP skip this step
+## if ldproxy off and bedfiles is provided - remove those that fall inside the Bedfile region
+## if on, check for for overlap and do LDsub
 
 
