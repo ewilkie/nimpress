@@ -22,12 +22,15 @@ pacman::p_load(docopt)
 ## docopts ##
 #############
 
-## example command:  Rscript Nimpress_preprocess.R --file /Users/ewilkie/Documents/Polygenic/nimpress/preprocess/Example/Example_File_to_process.txt --GRCh37
+## example command:  Rscript Nimpress_preprocess.R --file /Users/ewilkie/Documents/Polygenic/nimpress/preprocess/Example/Example_File_to_process.txt --GRCh37 --blacklisted_bed /Users/ewilkie/Documents/CCI_general_data_files/GRCh37_alldifficultregions.bed --LDproxy_pop GRB --LDproxy_token cbe1b45bc8be
 
 
 'NIMPRESS preprocess
 Usage:
   Nimpress_preprocess.R --file=<file_to_process> (--GRCh37 | --GRCh38) [(--LDproxy_pop=<BG population> --LDproxy_token=<token>) --blacklisted_bed=<bed> --outpath=<outpath> --offset=<offset>]  
+  Nimpress_preprocess.R --file=<file_to_process> --GRCh37 --blacklisted_bed=<bed>
+  Nimpress_preprocess.R --file=<file_to_process> --GRCh37 --blacklisted_bed=<bed> --LDproxy_pop=<BG population> --LDproxy_token=<token>
+  Nimpress_preprocess.R --file=<file_to_process> --GRCh37 --LDproxy_pop=<BG population> --LDproxy_token=<token>
   Nimpress_preprocess.R (-h | --help)
   Nimpress_preprocess.R --version
 Arguments:
@@ -65,7 +68,7 @@ stop("just checking arguments")
 setwd("/Users/ewilkie/Documents/Polygenic/nimpress/preprocess/")
 arguments <- list()
 arguments$GRCh37 = TRUE
-arguments$blacklisted_bed = TRUE
+arguments$blacklisted_bed = "/Users/ewilkie/Documents/CCI_general_data_files/GRCh37_alldifficultregions.bed"
 arguments$file = "./Example/Example_File_to_process.csv"
 arguments$LDproxy_pop="GRB"
 arguments$LDproxy_pop="cbe1b45bc8be"
@@ -76,13 +79,6 @@ arguments$LDproxy_pop="cbe1b45bc8be"
 
 
 ## GRCh38 - but need different file for that
-## with private/ non built in bed file
-
-## can't remember why this is in getrsID_info function
-#if(!is.null(g9$g8)){
-#  g9 <- g9[-which(g9$g8 == "del"),]
-#}
-
 
 ###################
 ## Initial setup ##
@@ -114,20 +110,18 @@ if(arguments$GRCh37 == TRUE){
 ass <- read.table(assembly_file, header=F, sep="\t",stringsAsFactors = F)
 ass_sub <- ass[,c(3,7)]
 assembly <- ass_sub[grep("NC_", ass_sub[,2]),]
+colnames(assembly) <- c("CHR", "NC_CHR")
 #print(assembly)
 
 ## setup blacklisted genome bed file
-bedfile = NULL
-if(arguments$r == TRUE){
-  bedfile = paste("./Suppl/", gv, "_alldifficultregions.bed", sep="")
-}else if(!is.null(arguments$blacklisted_bed)){
-  bedfile = arguments$blacklisted_bed
-}
 
-if(!is.null(bedfile)){
+if(!is.null(arguments$blacklisted_bed)){
+  bedfile = arguments$blacklisted_bed
   ovlp <- fread(bedfile, header = FALSE, stringsAsFactors = FALSE)
   colnames(ovlp) <- c("chr", "start", "end")
   gr <- makeGRangesFromDataFrame(ovlp, keep.extra.columns = TRUE)
+}else{
+  bedfile = NULL
 }
 
 
@@ -148,7 +142,7 @@ message("[4/..] Starting file processing...")
 ## set up loop when single run is finished
 #for(f in 1:length(master_file.list)){
 #}
-f <- 1
+f <- 2
 
 message(paste("[", 3+f ,"/..] Processing file:", master_file.list[[f]]$GWAS_summary_statistic_file_and_path, sep="" ))
 input <- master_file.list[[f]]$GWAS_summary_statistic_file_and_path
@@ -183,12 +177,69 @@ print(ela)
 rsID_loc_df <- do.call(rbind, rsID_loc)
 print(rsID_loc_df)
 
+##################
+## Get coverage ##
+##################
+
+## tghis obviously doesn't work with deletions
+get_cov <- function(urer,s){
+  snp <- GRanges(seqnames=as.numeric(urer[s,"CHR"]), ranges=IRanges(start=as.numeric(urer[s,"START"])-1, end=as.numeric(urer[s,"START"]), starts.in.df.are.0based))
+  hits <- findOverlaps(gr,snp)
+  if(length(hits@from) > 0){
+    bedcov = FALSE
+  }else{
+    bedcov = TRUE
+  }
+  return(bedcov)
+}
+
+
+ela <- Sys.time()
+
+
+rsID_loc_df <- do.call(rbind, rsID_loc)
+colnames(rsID_loc_df) <- c("CHR","START","rsID")
+urer <- rsID_loc_df
+
+
+
+if(bedfile == "NULL"){
+  bedcov <- FALSE
+  urercov <- cbind(urer, cov)
+}else{
+  urer <- rsID_loc_df
+  cov <- vector()
+  for (s in 1:nrow(urer)){
+    nc <- get_cov(urer,s)
+    cov <- c(cov, nc)
+    
+  }
+  urercov <- cbind(urer, cov)
+}
+
+ela <- Sys.time() - ela
+print(ela)
+
+########!!!!!!!! swapped true with false since cov file type has changed
+## this is for getLDproxy function
+original_SNP <- urercov[,"rsID"]
+
+
+
+
+
 
 #############
 ## LDproxy ##
 #############
 
 ## check if LDproxy is on
+
+## check if population is one of the allowed - is population needed??
+## check if proxy is correct
+
+
+
 ## if off and bedfiles is provided - remove those that fall inside the Bedfile region
 ## if on, check for for overlap 
 

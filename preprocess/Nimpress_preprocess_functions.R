@@ -66,71 +66,55 @@ check_gwas_file <- function(input){
 ## get rdID genomic location from dbSNP ##
 ##########################################
 
+## extracts information from rsID dbSNP lookup: CHR, start, REF.Allele, ALT.Allele
+format_dbSNP <- function(x){
+  ## extract assembly, genome position and variant details 
+  g1 <- gsub("^[A-Za-z]*=", "", x)
+  ## remove everything after "|"
+  g2 <- strsplit(gsub("\\|.*$", "", g1), ",")
+  ## split chr from location
+  g3 <- unlist(strsplit(g2[[1]], ":"))
+  ## format into df
+  odd <- seq_along(g3) %% 2 == 1
+  NC_CHR <- g3[odd]
+  nt <- gsub("^g\\.", "", g3[!odd])
+  START <- gsub("[A-Z]>[A-Z]", "", nt)
+  nt2 <- unlist(lapply(strsplit(nt,"[0-9]"),function(x) x[length(x)]))
+  nt3 <- do.call(rbind, strsplit(nt2, ">"))
+  colnames(nt3) <- c("REF", "ALT")
+  df <- data.frame(NC_CHR,START, nt3)
+  df2 <- unique(merge(assembly,df,by="NC_CHR"))
+  df3 <- df2[,-1]
+  return(df3)
+}
+
 ## this function lookes up information in the dbSNP database for each rsID
-## extracts information for GRCh37: CHR, start, REF.Allele, ALT.Allele
 ## same results as a list it handle if multiple ALT alleles exist
 
-
 getrsID_info <- function(rsid_input){
-  
   snp_term <- paste(rsid_input, "[RS]", sep="")
   r_search <- entrez_search(db="snp", term=snp_term)
-  
-  
+  ## if no result returned
   if(length(r_search$id) == 0){
     final_snp <- cbind(rsid_input, NA,NA,NA,NA)
     colnames(final_snp) <- c("rsID", "CHR", "START", "REF.ALLELE", "ALT.ALLELE")
   }else{
+    ## info associated with snp_id
     multi_summs <- entrez_summary(db="snp", id=r_search$id)
-    
-    ## get the unique SNP_ID
-    uid <- unique(extract_from_esummary(multi_summs, c("snp_id")))
+    uid <- unique(extract_from_esummary(multi_summs, c("snp_id","snp_class")))
     all_recs <- entrez_fetch(db="snp", id=uid, rettype="xml")
     tax_list <- XML::xmlToList(all_recs)
     
-    ## extract assembly, genome position and variant details 
-    g1 <- gsub("^[A-Za-z]*=", "", tax_list$DocumentSummary$DOCSUM)
-    g2 <- strsplit(g1,"\\|")
-    g3 <- as.data.frame(strsplit(g2[[1]][1],",")[[1]])
-    colnames(g3) <- "ID"
-    
-    g4 <- apply(g3, 2, function(x) strsplit(x,":g\\."))
-    g5 <- as.data.frame(do.call(rbind, g4$ID),stringsAsFactors=FALSE)
-    colnames(g5) <- c("assembly", "START")
-    
-    g6 <- strsplit(g5$START,"[0-9]")
-    g7 <- unlist(lapply(g6,function(x) x[length(x)]))
-    g8 <- do.call(rbind, strsplit(g7, ">"))
-    g9 <- cbind(g5,g8)
-    rmg <- gsub("[^0-9]", "", g9$START)
-    g9$START <- rmg
-    
-    ## can't remember why this is in here
-    #if(!is.null(g9$g8)){
-    #  g9 <- g9[-which(g9$g8 == "del"),]
-    #}
-    
-    ## check if there are no entires for that rsID
-    g10 <- g9
-    colnames(g10)[3:4] <- c("REF_Allele","ALT_Allele")
-    
-    ## subset to only NC
-    g11 <- g10[grep("^NC",  g10[,1]),]
-    
-    ## extract CHR
-    g12 <- gsub("NC_0+","",g11[,1])
-    CHR <- gsub("\\.[0-9]*", "", g12)
-    
-    g13 <- data.frame(g11$assembly, CHR, g11$START, g11$REF_Allele, g11$ALT_Allele)
-    
-    ## Get right Assembly from SNP
-    inter <- intersect(g13[,1], assembly[,2])
-    g14 <- unique(g13[grep(inter,g13[,1]),])
-    g15 <- g14[,-1]
-    
-    ## multiple Alt Alleles are on different lines 
-    final_snp <- cbind(rsid_input, g15)
-    colnames(final_snp) <- c("rsID", "CHR", "START", "REF.ALLELE", "ALT.ALLELE")
+    if(tax_list$DocumentSummary$SNP_CLASS == "snv"){
+      dbSNP_res <- format_dbSNP(tax_list$DocumentSummary$DOCSUM)
+      ## multiple Alt Alleles are on different lines 
+      final_snp <- cbind(rsid_input, dbSNP_res)
+      colnames(final_snp) <- c("rsID", "CHR", "START", "REF.ALLELE", "ALT.ALLELE")
+    ## if rsID doesn't represent SNV
+    }else{
+      final_snp <- cbind(rsid_input, NA,NA,NA,NA)
+      colnames(final_snp) <- c("rsID", "CHR", "START", "REF.ALLELE", "ALT.ALLELE")
+    }
   }
   return(final_snp)
 }
