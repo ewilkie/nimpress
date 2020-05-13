@@ -30,12 +30,13 @@ check_gwas_file <- function(input){
   gwas_file <- as.data.frame(apply(gwas_file,2,function(x)gsub('\\s+', '',x)))
   
   ## check if all rsIDs are in propper format
-  sw <- startsWith(gwas_file$rsID, "rs")
+  rsid_pattern <- "^rs\\d{1,}"
+  sw <- grepl(rsid_pattern,gwas_file$rsID, ignore.case = T)
   sww <- which(sw !=TRUE)
   if(length(sww) == 0){
     message("All rsID ok")
   }else{
-    stop(paste("Line ", sww, " does not contain a valid rsID", sep=""))
+    stop(paste("Invalid format for", gwas_file$rsID[sww] , " on line ", sww, sep=""))
   }
   
   ## check if valid nucleotides
@@ -118,8 +119,6 @@ getrsID_info <- function(rsid_input){
   }
   return(final_snp)
 }
-
-
 
 ###################################################
 ## Get coverage with blacklisted bad file region ##

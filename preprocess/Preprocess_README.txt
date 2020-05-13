@@ -23,7 +23,7 @@ Optional parameters:
 --offset:   DEFAULT: 0.0
 
 If LDproxy is desired both of the following parameters are required:
---LDproxy_pop: background population DEFAULT: GBR>
+--LDproxy_pop: a 1000 Genomes Project population more details below: DEFAULT: GBR
 --LDproxy_token <generate token via https://ldlink.nci.nih.gov/?tab=apiaccess>
 
 If removal of rsID in difficult to sequence genomic regions is desired or substitueted with rsIDs in LD if above options are set use:
@@ -48,13 +48,18 @@ rsID,Risk_allele,Freq,<OR or BETA>,P-value
 The underlying preprocessing script has the following functionality
 
 - convert OR to Beta via log transformation
-- query dbSNP to extract reference allele and genomic location
-- if remove "black-listed genomic regions" flag is set or bed file is provided, rsIDs that fall in those regions will be removed if LDpoxy parameters are not set or substituted with alternative rsIDs that have an LD value > 0.9 if LDproxy parameters are set
+- query dbSNP to extract reference allele and genomic location. rsIDs which don't represent SNVs will be treated as unusable. If LDproxy is enabled, alternative rsIDs will be identified
+- if remove "black-listed genomic regions" flag is set or bed file is provided, if LDpoxy parameters are not set rsIDs that fall in those regions will be removed or if LDproxy parameters are set substituted with alternative rsIDs that have an LD value > 0.9 
 - check for strand flipping and define correct alleles if strand flipping has occured
 
 Citatione for default black-listed genomic regions:
 Krusche, P., Trigg, L., Boutros, P.C. et al. 
 Best practices for benchmarking germline small-variant calls in human genomes. 
 Nat Biotechnol 37, 555–560 (2019). https://doi.org/10.1038/s41587-019-0054-x
+
+LDproxy_pop: a 1000 Genomes Project population: Select one from: 
+Population code in: LDproxy_background_populations_from_1000_genomes.csv
+More info at: https://www.internationalgenome.org/faq/which-populations-are-part-your-study
+
 
  

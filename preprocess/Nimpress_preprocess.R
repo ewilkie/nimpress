@@ -70,8 +70,8 @@ arguments <- list()
 arguments$GRCh37 = TRUE
 arguments$blacklisted_bed = "/Users/ewilkie/Documents/CCI_general_data_files/GRCh37_alldifficultregions.bed"
 arguments$file = "./Example/Example_File_to_process.csv"
-arguments$LDproxy_pop="GRB"
-arguments$LDproxy_pop="cbe1b45bc8be"
+arguments$LDproxy_pop ="GBR"
+arguments$LDproxy_token ="cbe1b45bc8be"
 
 ##########################################
 ## testing that still needs to be done: ##
@@ -89,7 +89,7 @@ arguments$LDproxy_pop="cbe1b45bc8be"
 ###############
 
 message("[1/..] Loading libraries...")
-pacman::p_load(data.table,GenomicRanges,rentrez)
+pacman::p_load(data.table,GenomicRanges,rentrez, )
 ## rentrez,bedr,LDlinkR,stringr,GenomicRanges
 
 ###################
@@ -125,11 +125,30 @@ if(!is.null(arguments$blacklisted_bed)){
 }
 
 
+## check LDproxy input 
+bgpc <- c("CHB","JPT","CHS","CDX","KHV","CEU","TSI","FIN","GBR","IBS","YRI","LWK","GWD","MSL","ESN","ASW","ACB","MXL","PUR","CLM","PEL","GIH","PJL","BEB","STU","ITU")
+## check if LDproxy is on
+LDproxy_flag = "OFF"
+if(!is.null(arguments$LDproxy_pop) && !is.null(arguments$LDproxy_token)){
+  message("[3/..] Testing LDproxy parameters... ")
+  pacman::p_load(LDlinkR)
+  ## check valid background population
+  if(arguments$LDproxy_pop %!in% bgpc){
+    stop(paste(arguments$LDproxy_pop, " is not a valid background population. Select one from: https://www.internationalgenome.org/faq/which-populations-are-part-your-study"))
+  }
+  testproxy <- LDproxy("rs456", arguments$LDproxy_pop, "r2", token = arguments$LDproxy_token)
+  if(testproxy[1,1] != "  error: Invalid or expired API token. Please register using the API Access tab: https://ldlink.nci.nih.gov/?tab=apiaccess,"){
+    message("LDproxy parameters ok")
+    LDproxy_flag = "ON"
+  }
+}
+
+
 #################
 ## Input files ##
 #################
 
-message("[3/..] Reading master file...")
+message("[4/..] Reading master file...")
 
 master_file <- read.table(arguments$file, sep=",", header=T)
 master_file.list <- split(master_file, seq(nrow(master_file)))
@@ -137,7 +156,7 @@ master_file.list <- split(master_file, seq(nrow(master_file)))
 ## load processing functions files
 source("./Nimpress_preprocess_functions.R")
 
-message("[4/..] Starting file processing...")
+message("[5/..] Starting file processing...")
 
 ## set up loop when single run is finished
 #for(f in 1:length(master_file.list)){
@@ -182,7 +201,7 @@ print(rsID_loc_df)
 ##################
 
 ## can speed this up by extracting unique and the merging? Might not make much difference 
-1.623069 / 12 = 0.13 secs per SNP
+##1.623069 / 12 = 0.13 secs per SNP
 
 ela <- Sys.time()
 if(bedfile == "NULL"){
@@ -206,14 +225,129 @@ print(ela)
 ## LDproxy ##
 #############
 
-## check if LDproxy is on
-
-## check if population is one of the allowed - is population needed??
-## check if proxy is correct
-
-
 ## if no bed file and no LDSUP skip this step
 ## if ldproxy off and bedfiles is provided - remove those that fall inside the Bedfile region
-## if on, check for for overlap and do LDsub
+
+## if no bedfile all bedcov will equal FALSE, if no fall in region no sub needed
+if(length(unique(urercov$bedcov)) == 1 & unique(urercov$bedcov) == FALSE){
+  ## write output
+## if LDproxy not used and bedfile provided, remove those without coverage. 
+}else if (LDproxy_flag == "OFF" & bedfile != "NULL"){
+  #-------> LOG FILE those that are removed should be put into "log file"
+## if ldproxy is on  
+}else if (LDproxy_flag == "ON"){
+  ## do LDproxy & Sub 
+}
+
+
+
+
+###################
+## Dlinkpipeline ##
+###################
+
+## coords are for GRCh37
+
+## certain rsIDs can be perfectly linked. 
+## in this case the LDproxy rsID turned out to be the same
+##https://ldlink.nci.nih.gov/?var1=rs4948492&var2=rs4245597&pop=GBR&tab=ldpair
+## could potentially also arise due to different issues, but the solution is to keep track of the new rsIDs and if that is already obtained, find another one, if no exist, drop the original rsID
+## how to do this?
+
+getLDproxy <- function(snp){
+  ## for breaking
+  new_rd <- TRUE
+  ## run Query
+  my_proxies <- LDproxy(snp, pop = "GBR", r2d = "r2", token = "cbe1b45bc8be", file = FALSE)
+  ## extract only those with R2 >= 0.9
+  my_proxies_keep <- my_proxies[which(my_proxies$R2 >= 0.9),c(1,2,3)]
+  ## remove those without rs number
+  my_proxies_keep2 <- my_proxies_keep[grep("rs", my_proxies_keep$RS_Number),]
+  ## remove those that are already in the dataset
+  my_proxies_keep3 <- my_proxies_keep2[-which(my_proxies_keep2$RS_Number %in% original_SNP),]
+  ## if no proxies
+  if(nrow(my_proxies_keep3) == 0){
+    new_rd <- NA
+  }else{
+    ## split coords
+    coord <- sub(".*:(\\d+).*", "\\1", my_proxies_keep3$Coord)
+    coord_check <- paste(my_proxies_keep3$Coord , "-" , coord, sep="")
+    for(i in 1:length(coord_check)){
+      if(arguments$bed == "NULL"){
+        getALT <- getrsID_info(my_proxies_keep3[i,1])
+        if(!is.na(getALT)){
+          ALTcol <- paste(sort(as.vector(getALT$all.alleles$ALT.ALLELE)), collapse=",")
+          Alleles <- paste("(", unique(as.vector(getALT$all.alleles$REF.ALLELE)) , "/", ALTcol, ")", sep="")
+          new_rd <- c(as.matrix(my_proxies_keep3[i,1:2]), Alleles)
+          rsid_keep <- c(rsid_keep,as.vector(my_proxies_keep3[i,"RS_Number"]))
+          break
+        }else{
+          next
+        }
+      }else{
+        coord <- coord_check[i]
+        snp_chr <- sub("chr","" , sub('\\:.*', '', coord))
+        start <- as.numeric(sub("\\-.*", "", sub('.*\\:', '', coord)))
+        snp <- GRanges(seqnames=snp_chr, ranges=IRanges(start=start, end=start))
+        hits <- findOverlaps(gr,snp)
+        if(length(hits@from) > 0){
+          if(as.vector(my_proxies_keep3[i,"RS_Number"]) %!in% rsid_keep){
+            ## need to get all alternative allelse fot this new rsID 
+            getALT <- getrsID_info(as.vector(my_proxies_keep3[i,1]))
+            if(!is.na(getALT)){
+              ALTcol <- paste(sort(as.vector(getALT$all.alleles$ALT.ALLELE)), collapse=",")
+              Alleles <- paste("(", unique(as.vector(getALT$all.alleles$REF.ALLELE)) , "/", ALTcol, ")", sep="")
+              new_rd <- c(as.matrix(my_proxies_keep3[i,1:2]), Alleles)
+              rsid_keep <- c(rsid_keep,as.vector(my_proxies_keep3[i,"RS_Number"]))
+              break
+            }else{
+              next
+            }
+          }
+        }else{
+          new_rd <- NA
+        } 
+      }
+    }
+  }
+  return(new_rd)
+}  
+
+
+rsid_keep <- vector()
+LDres <- list()
+for(n in 1:nrow(urercov)){
+  if(urercov[n,4] == "FALSE"){
+    LD <- getLDproxy(as.vector(urercov[n,3]))
+    if (length(LD) == 3){
+      coord <- strsplit(as.vector(LD[2]), ":")[[1]]
+      j <- as.vector(LD[3])
+      all <- regmatches(j, gregexpr("(?<=\\().*?(?=\\))", j, perl=T))[[1]]
+      ref <- strsplit(all, "/")[[1]][1]
+      alt <- strsplit(all, "/")[[1]][2]
+      res <- c(as.vector(LD[1]), gsub("chr", "", coord[1]), coord[2], ref, alt)
+      LDres[[n]] <- res
+      rsid_keep <- c(rsid_keep, as.vector(LD[1]))
+    }else if(is.na(LD)) {
+      LDres[[n]] <- NA
+    }
+  }else{
+    LDres[[n]] <- NA
+  }
+}
+
+
+LDres_mat <- do.call(rbind, LDres)
+if(ncol(LDres_mat) == 5){
+  colnames(LDres_mat) <- c("ALT.rsID", "ALT.chr", "ALT.start","REF.new", "ALT.new")
+}else{
+  ## when there are no LDproxy results, either all cov == TRUE or when cov == FALSE, but no proxy exists 
+  ## this is so code below doesn't break
+  LDres_mat <- cbind(LDres_mat, LDres_mat,LDres_mat,LDres_mat,LDres_mat)
+  colnames(LDres_mat) <- c("ALT.rsID", "ALT.chr", "ALT.start","REF.new", "ALT.new")
+}
+
+## combine original rsID and alternative
+comb <- as.data.frame(cbind(urercov,LDres_mat))
 
 
