@@ -57,8 +57,17 @@ Krusche, P., Trigg, L., Boutros, P.C. et al.
 Best practices for benchmarking germline small-variant calls in human genomes. 
 Nat Biotechnol 37, 555–560 (2019). https://doi.org/10.1038/s41587-019-0054-x
 
+
+Notes on Linkage disequalibrium proxy substitution:
+SNPS can only be substituted if they are in the 1000 Genome reference panel and have GRCh37 coordinates. Therefore if GRCh38 is selected and LDproxy parameters specified, the LDproxy functionality will be turned off
+
+dbSNP version 151 (Database of Single Nucleotide Polymorphisms [DBSNP], 2007) is used to match query RS numbers with the genomic coordinates (GRCh37) of the SNPs of interest
+https://www.frontiersin.org/articles/10.3389/fgene.2020.00157/full
+
 LDproxy_pop: a 1000 Genomes Project population: 
 Select one from: https://www.internationalgenome.org/faq/which-populations-are-part-your-study
+
+
 
 
  

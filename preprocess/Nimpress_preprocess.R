@@ -68,6 +68,7 @@ stop("just checking arguments")
 setwd("/Users/ewilkie/Documents/Polygenic/nimpress/preprocess/")
 arguments <- list()
 arguments$GRCh37 = TRUE
+arguments$GRCh38 = TRUE
 arguments$blacklisted_bed = "/Users/ewilkie/Documents/CCI_general_data_files/GRCh37_alldifficultregions.bed"
 arguments$file = "./Example/Example_File_to_process.csv"
 arguments$LDproxy_pop ="GBR"
@@ -79,6 +80,7 @@ arguments$LDproxy_token ="cbe1b45bc8be"
 
 
 ## GRCh38 - but need different file for that
+## to do about: error: rs965506592 is not in 1000G reference panel.,
 
 ###################
 ## Initial setup ##
@@ -113,7 +115,9 @@ assembly <- ass_sub[grep("NC_", ass_sub[,2]),]
 colnames(assembly) <- c("CHR", "NC_CHR")
 #print(assembly)
 
-## setup blacklisted genome bed file
+#######################################
+## setup blacklisted genome bed file ##
+#######################################
 
 if(!is.null(arguments$blacklisted_bed)){
   bedfile = arguments$blacklisted_bed
@@ -124,18 +128,23 @@ if(!is.null(arguments$blacklisted_bed)){
   bedfile = NULL
 }
 
+#############
+## LDproxy ##
+#############
 
 ## check LDproxy input 
 pop <- list_pop()
 bgpc <- pop$pop_code
 ## check if LDproxy is on
 LDproxy_flag = "OFF"
-if(!is.null(arguments$LDproxy_pop) && !is.null(arguments$LDproxy_token)){
+if(!is.null(arguments$LDproxy_pop) & !is.null(arguments$LDproxy_token) & arguments$GRCh38 == TRUE){
+  message("Warning: LDproxy does not support genome version GRCh38 and therefore LDproxy will be disabled")
+} else if(!is.null(arguments$LDproxy_pop) & !is.null(arguments$LDproxy_token) && arguments$GRCh37 == TRUE){
   message("[3/..] Testing LDproxy parameters... ")
   pacman::p_load(LDlinkR)
   ## check valid background population
   if(arguments$LDproxy_pop %!in% bgpc){
-    stop(paste(arguments$LDproxy_pop, " is not a valid background population. Select one from: https://www.internationalgenome.org/faq/which-populations-are-part-your-study"))
+    stop(paste(arguments$LDproxy_pop, " is not a valid background population. Select one from: ", paste(bgpc, collapse=",") , sep="" ))
   }
   testproxy <- LDproxy("rs456", arguments$LDproxy_pop, "r2", token = arguments$LDproxy_token)
   if(testproxy[1,1] != "  error: Invalid or expired API token. Please register using the API Access tab: https://ldlink.nci.nih.gov/?tab=apiaccess,"){
@@ -282,6 +291,9 @@ comb <- as.data.frame(cbind(urercov,LDres_mat))
 ## Dlinkpipeline ##
 ###################
 
+## what to do about: error: rs965506592 is not in 1000G reference panel.,
+
+# dbSNP version 151 (Database of Single Nucleotide Polymorphisms [DBSNP], 2007) is used to match query RS numbers with the genomic coordinates (GRCh37) of the SNPs of interest
 
 ## certain rsIDs can be perfectly linked. 
 ## in this case the LDproxy rsID turned out to be the same
