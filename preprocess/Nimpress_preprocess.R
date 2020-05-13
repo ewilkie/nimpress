@@ -126,7 +126,8 @@ if(!is.null(arguments$blacklisted_bed)){
 
 
 ## check LDproxy input 
-bgpc <- c("CHB","JPT","CHS","CDX","KHV","CEU","TSI","FIN","GBR","IBS","YRI","LWK","GWD","MSL","ESN","ASW","ACB","MXL","PUR","CLM","PEL","GIH","PJL","BEB","STU","ITU")
+pop <- list_pop()
+bgpc <- pop$pop_code
 ## check if LDproxy is on
 LDproxy_flag = "OFF"
 if(!is.null(arguments$LDproxy_pop) && !is.null(arguments$LDproxy_token)){
@@ -239,6 +240,41 @@ if(length(unique(urercov$bedcov)) == 1 & unique(urercov$bedcov) == FALSE){
   ## do LDproxy & Sub 
 }
 
+rsid_keep <- vector()
+LDres <- list()
+for(n in 1:nrow(urercov)){
+  if(urercov[n,4] == "TRUE"){
+    LD <- getLDproxy(as.vector(urercov[n,3]))
+    if (length(LD) == 3){
+      coord <- strsplit(as.vector(LD[2]), ":")[[1]]
+      j <- as.vector(LD[3])
+      all <- regmatches(j, gregexpr("(?<=\\().*?(?=\\))", j, perl=T))[[1]]
+      ref <- strsplit(all, "/")[[1]][1]
+      alt <- strsplit(all, "/")[[1]][2]
+      res <- c(as.vector(LD[1]), gsub("chr", "", coord[1]), coord[2], ref, alt)
+      LDres[[n]] <- res
+      rsid_keep <- c(rsid_keep, as.vector(LD[1]))
+    }else if(is.na(LD)) {
+      LDres[[n]] <- NA
+    }
+  }else{
+    LDres[[n]] <- NA
+  }
+}
+
+
+LDres_mat <- do.call(rbind, LDres)
+if(ncol(LDres_mat) == 5){
+  colnames(LDres_mat) <- c("ALT.rsID", "ALT.chr", "ALT.start","REF.new", "ALT.new")
+}else{
+  ## when there are no LDproxy results, either all cov == TRUE or when cov == FALSE, but no proxy exists 
+  ## this is so code below doesn't break
+  LDres_mat <- cbind(LDres_mat, LDres_mat,LDres_mat,LDres_mat,LDres_mat)
+  colnames(LDres_mat) <- c("ALT.rsID", "ALT.chr", "ALT.start","REF.new", "ALT.new")
+}
+
+## combine original rsID and alternative
+comb <- as.data.frame(cbind(urercov,LDres_mat))
 
 
 
@@ -246,19 +282,27 @@ if(length(unique(urercov$bedcov)) == 1 & unique(urercov$bedcov) == FALSE){
 ## Dlinkpipeline ##
 ###################
 
-## coords are for GRCh37
 
 ## certain rsIDs can be perfectly linked. 
 ## in this case the LDproxy rsID turned out to be the same
 ##https://ldlink.nci.nih.gov/?var1=rs4948492&var2=rs4245597&pop=GBR&tab=ldpair
 ## could potentially also arise due to different issues, but the solution is to keep track of the new rsIDs and if that is already obtained, find another one, if no exist, drop the original rsID
-## how to do this?
 
-getLDproxy <- function(snp){
+getLDproxy("rs965506592",arguments$LDproxy_pop, arguments$LDproxy_token)
+
+#error: rs965506592 is not in 1000G reference panel.,
+#Error in `[.data.frame`(my_proxies, which(my_proxies$R2 >= 0.9), c(1,  : 
+                                                                     undefined columns selected 
+
+snp <- "rs965506592"
+pop <- arguments$LDproxy_pop
+token <- arguments$LDproxy_token
+
+getLDproxy <- function(snp, pop, token){
   ## for breaking
   new_rd <- TRUE
   ## run Query
-  my_proxies <- LDproxy(snp, pop = "GBR", r2d = "r2", token = "cbe1b45bc8be", file = FALSE)
+  my_proxies <- LDproxy(snp, pop = pop, r2d = "r2", token = token, file = FALSE)
   ## extract only those with R2 >= 0.9
   my_proxies_keep <- my_proxies[which(my_proxies$R2 >= 0.9),c(1,2,3)]
   ## remove those without rs number
@@ -314,40 +358,5 @@ getLDproxy <- function(snp){
 }  
 
 
-rsid_keep <- vector()
-LDres <- list()
-for(n in 1:nrow(urercov)){
-  if(urercov[n,4] == "FALSE"){
-    LD <- getLDproxy(as.vector(urercov[n,3]))
-    if (length(LD) == 3){
-      coord <- strsplit(as.vector(LD[2]), ":")[[1]]
-      j <- as.vector(LD[3])
-      all <- regmatches(j, gregexpr("(?<=\\().*?(?=\\))", j, perl=T))[[1]]
-      ref <- strsplit(all, "/")[[1]][1]
-      alt <- strsplit(all, "/")[[1]][2]
-      res <- c(as.vector(LD[1]), gsub("chr", "", coord[1]), coord[2], ref, alt)
-      LDres[[n]] <- res
-      rsid_keep <- c(rsid_keep, as.vector(LD[1]))
-    }else if(is.na(LD)) {
-      LDres[[n]] <- NA
-    }
-  }else{
-    LDres[[n]] <- NA
-  }
-}
-
-
-LDres_mat <- do.call(rbind, LDres)
-if(ncol(LDres_mat) == 5){
-  colnames(LDres_mat) <- c("ALT.rsID", "ALT.chr", "ALT.start","REF.new", "ALT.new")
-}else{
-  ## when there are no LDproxy results, either all cov == TRUE or when cov == FALSE, but no proxy exists 
-  ## this is so code below doesn't break
-  LDres_mat <- cbind(LDres_mat, LDres_mat,LDres_mat,LDres_mat,LDres_mat)
-  colnames(LDres_mat) <- c("ALT.rsID", "ALT.chr", "ALT.start","REF.new", "ALT.new")
-}
-
-## combine original rsID and alternative
-comb <- as.data.frame(cbind(urercov,LDres_mat))
 
 

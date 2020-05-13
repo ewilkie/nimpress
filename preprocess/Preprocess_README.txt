@@ -57,9 +57,8 @@ Krusche, P., Trigg, L., Boutros, P.C. et al.
 Best practices for benchmarking germline small-variant calls in human genomes. 
 Nat Biotechnol 37, 555–560 (2019). https://doi.org/10.1038/s41587-019-0054-x
 
-LDproxy_pop: a 1000 Genomes Project population: Select one from: 
-Population code in: LDproxy_background_populations_from_1000_genomes.csv
-More info at: https://www.internationalgenome.org/faq/which-populations-are-part-your-study
+LDproxy_pop: a 1000 Genomes Project population: 
+Select one from: https://www.internationalgenome.org/faq/which-populations-are-part-your-study
 
 
  
