@@ -191,20 +191,20 @@ rsIDu <- as.vector(unique(rsID))
 
 ## list containing "rsID", "CHR", "START", "REF.ALLELE", "ALT.ALLELE" - for Risk allele check
 ## this loop takes about 28.85696 / 13 = 2.219766 secs per SNPS
-ela <- Sys.time()
-rsID_loc <- list()
+#ela <- Sys.time()
 
+rsID_loc <- list()
 for (rsid in 1: length(rsIDu)){
   message(paste("Getting info for : ", rsIDu[rsid],sep=""))
   res <- getrsID_info(rsIDu[rsid])
   rsID_loc[[rsid]] <- res
 }
 
-ela <- Sys.time() - ela
-print(ela)
+#ela <- Sys.time() - ela
+#print(ela)
 
 rsID_loc_df <- do.call(rbind, rsID_loc)
-print(rsID_loc_df)
+#print(rsID_loc_df)
 
 ##################
 ## Get coverage ##
@@ -213,7 +213,7 @@ print(rsID_loc_df)
 ## can speed this up by extracting unique and the merging? Might not make much difference 
 ##1.623069 / 12 = 0.13 secs per SNP
 
-ela <- Sys.time()
+#ela <- Sys.time()
 if(bedfile == "NULL"){
   bedcov <- FALSE
   urercov <- cbind(rsID_loc_df, bedcov)
@@ -226,8 +226,8 @@ if(bedfile == "NULL"){
   urercov <- cbind(rsID_loc_df, bedcov)
 }
 
-ela <- Sys.time() - ela
-print(ela)
+#ela <- Sys.time() - ela
+#print(ela)
 
 ########!!!!!!!! since cov file type has changed FALSE now means that no removal
 
@@ -235,8 +235,16 @@ print(ela)
 ## LDproxy ##
 #############
 
-## if no bed file and no LDSUP skip this step
-## if ldproxy off and bedfiles is provided - remove those that fall inside the Bedfile region
+## what to do about: error: rs965506592 is not in 1000G reference panel.,
+
+snp <- "rs965506592"
+pop <- arguments$LDproxy_pop
+token <- arguments$LDproxy_token
+n <- 1
+snp <- as.vector(urercov[n,"rsID"])
+
+ldpoxy_res <- getLDproxy(snp, pop, token)
+
 
 ## if no bedfile all bedcov will equal FALSE, if no fall in region no sub needed
 if(length(unique(urercov$bedcov)) == 1 & unique(urercov$bedcov) == FALSE){
@@ -247,13 +255,62 @@ if(length(unique(urercov$bedcov)) == 1 & unique(urercov$bedcov) == FALSE){
 ## if ldproxy is on  
 }else if (LDproxy_flag == "ON"){
   ## do LDproxy & Sub 
+  ## this is for getLDproxy function so that no duplicates appear in data
+  original_SNP <- unique(urercov[,"rsID"])
+  
 }
+
+
+## from old function. Incorporate this   
+for(i in 1:length(coord_check)){
+  if(arguments$bed == "NULL"){
+    getALT <- getrsID_info(my_proxies_keep3[i,1])
+    if(!is.na(getALT)){
+      ALTcol <- paste(sort(as.vector(getALT$all.alleles$ALT.ALLELE)), collapse=",")
+      Alleles <- paste("(", unique(as.vector(getALT$all.alleles$REF.ALLELE)) , "/", ALTcol, ")", sep="")
+      new_rd <- c(as.matrix(my_proxies_keep3[i,1:2]), Alleles)
+      rsid_keep <- c(rsid_keep,as.vector(my_proxies_keep3[i,"RS_Number"]))
+      break
+    }else{
+      next
+    }
+  }else{
+    coord <- coord_check[i]
+    snp_chr <- sub("chr","" , sub('\\:.*', '', coord))
+    start <- as.numeric(sub("\\-.*", "", sub('.*\\:', '', coord)))
+    snp <- GRanges(seqnames=snp_chr, ranges=IRanges(start=start, end=start))
+    hits <- findOverlaps(gr,snp)
+    if(length(hits@from) > 0){
+      if(as.vector(my_proxies_keep3[i,"RS_Number"]) %!in% rsid_keep){
+        ## need to get all alternative allelse fot this new rsID 
+        getALT <- getrsID_info(as.vector(my_proxies_keep3[i,1]))
+        if(!is.na(getALT)){
+          ALTcol <- paste(sort(as.vector(getALT$all.alleles$ALT.ALLELE)), collapse=",")
+          Alleles <- paste("(", unique(as.vector(getALT$all.alleles$REF.ALLELE)) , "/", ALTcol, ")", sep="")
+          new_rd <- c(as.matrix(my_proxies_keep3[i,1:2]), Alleles)
+          rsid_keep <- c(rsid_keep,as.vector(my_proxies_keep3[i,"RS_Number"]))
+          break
+        }else{
+          next
+        }
+      }
+    }else{
+      new_rd <- NA
+    } 
+  }
+}
+
+
+
+
+## just for testting
+urercov[1,"bedcov"] <- TRUE
 
 rsid_keep <- vector()
 LDres <- list()
 for(n in 1:nrow(urercov)){
-  if(urercov[n,4] == "TRUE"){
-    LD <- getLDproxy(as.vector(urercov[n,3]))
+  if(urercov[n,"bedcov"] == "TRUE"){
+    LD <- getLDproxy(as.vector(urercov[n,"rsID"]),arguments$LDproxy_pop, arguments$LDproxy_token)
     if (length(LD) == 3){
       coord <- strsplit(as.vector(LD[2]), ":")[[1]]
       j <- as.vector(LD[3])
@@ -287,87 +344,8 @@ comb <- as.data.frame(cbind(urercov,LDres_mat))
 
 
 
-###################
-## Dlinkpipeline ##
-###################
 
-## what to do about: error: rs965506592 is not in 1000G reference panel.,
 
-# dbSNP version 151 (Database of Single Nucleotide Polymorphisms [DBSNP], 2007) is used to match query RS numbers with the genomic coordinates (GRCh37) of the SNPs of interest
-
-## certain rsIDs can be perfectly linked. 
-## in this case the LDproxy rsID turned out to be the same
-##https://ldlink.nci.nih.gov/?var1=rs4948492&var2=rs4245597&pop=GBR&tab=ldpair
-## could potentially also arise due to different issues, but the solution is to keep track of the new rsIDs and if that is already obtained, find another one, if no exist, drop the original rsID
-
-getLDproxy("rs965506592",arguments$LDproxy_pop, arguments$LDproxy_token)
-
-#error: rs965506592 is not in 1000G reference panel.,
-#Error in `[.data.frame`(my_proxies, which(my_proxies$R2 >= 0.9), c(1,  : 
-                                                                     undefined columns selected 
-
-snp <- "rs965506592"
-pop <- arguments$LDproxy_pop
-token <- arguments$LDproxy_token
-
-getLDproxy <- function(snp, pop, token){
-  ## for breaking
-  new_rd <- TRUE
-  ## run Query
-  my_proxies <- LDproxy(snp, pop = pop, r2d = "r2", token = token, file = FALSE)
-  ## extract only those with R2 >= 0.9
-  my_proxies_keep <- my_proxies[which(my_proxies$R2 >= 0.9),c(1,2,3)]
-  ## remove those without rs number
-  my_proxies_keep2 <- my_proxies_keep[grep("rs", my_proxies_keep$RS_Number),]
-  ## remove those that are already in the dataset
-  my_proxies_keep3 <- my_proxies_keep2[-which(my_proxies_keep2$RS_Number %in% original_SNP),]
-  ## if no proxies
-  if(nrow(my_proxies_keep3) == 0){
-    new_rd <- NA
-  }else{
-    ## split coords
-    coord <- sub(".*:(\\d+).*", "\\1", my_proxies_keep3$Coord)
-    coord_check <- paste(my_proxies_keep3$Coord , "-" , coord, sep="")
-    for(i in 1:length(coord_check)){
-      if(arguments$bed == "NULL"){
-        getALT <- getrsID_info(my_proxies_keep3[i,1])
-        if(!is.na(getALT)){
-          ALTcol <- paste(sort(as.vector(getALT$all.alleles$ALT.ALLELE)), collapse=",")
-          Alleles <- paste("(", unique(as.vector(getALT$all.alleles$REF.ALLELE)) , "/", ALTcol, ")", sep="")
-          new_rd <- c(as.matrix(my_proxies_keep3[i,1:2]), Alleles)
-          rsid_keep <- c(rsid_keep,as.vector(my_proxies_keep3[i,"RS_Number"]))
-          break
-        }else{
-          next
-        }
-      }else{
-        coord <- coord_check[i]
-        snp_chr <- sub("chr","" , sub('\\:.*', '', coord))
-        start <- as.numeric(sub("\\-.*", "", sub('.*\\:', '', coord)))
-        snp <- GRanges(seqnames=snp_chr, ranges=IRanges(start=start, end=start))
-        hits <- findOverlaps(gr,snp)
-        if(length(hits@from) > 0){
-          if(as.vector(my_proxies_keep3[i,"RS_Number"]) %!in% rsid_keep){
-            ## need to get all alternative allelse fot this new rsID 
-            getALT <- getrsID_info(as.vector(my_proxies_keep3[i,1]))
-            if(!is.na(getALT)){
-              ALTcol <- paste(sort(as.vector(getALT$all.alleles$ALT.ALLELE)), collapse=",")
-              Alleles <- paste("(", unique(as.vector(getALT$all.alleles$REF.ALLELE)) , "/", ALTcol, ")", sep="")
-              new_rd <- c(as.matrix(my_proxies_keep3[i,1:2]), Alleles)
-              rsid_keep <- c(rsid_keep,as.vector(my_proxies_keep3[i,"RS_Number"]))
-              break
-            }else{
-              next
-            }
-          }
-        }else{
-          new_rd <- NA
-        } 
-      }
-    }
-  }
-  return(new_rd)
-}  
 
 
 

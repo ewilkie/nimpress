@@ -134,3 +134,47 @@ get_cov <- function(snp_info){
   }
   return(bedcov)
 }
+
+###################
+## Dlinkpipeline ##
+###################
+
+# dbSNP version 151 (Database of Single Nucleotide Polymorphisms [DBSNP], 2007) is used to match query RS numbers with the genomic coordinates (GRCh37) of the SNPs of interest
+
+## certain rsIDs can be perfectly linked. 
+## in this case the LDproxy rsID turned out to be the same
+##https://ldlink.nci.nih.gov/?var1=rs4948492&var2=rs4245597&pop=GBR&tab=ldpair
+## could potentially also arise due to different issues, but the solution is to keep track of the new rsIDs and if that is already obtained, find another one, if no exist, drop the original rsID
+
+
+#error: rs965506592 is not in 1000G reference panel.,
+
+getLDproxy <- function(snp, pop, token){
+  ## run Query
+  my_proxies <- LDproxy(snp, pop = pop, r2d = "r2", token = token, file = FALSE)
+  if(my_proxies[1,1] == "  error: rs965506592 is not in 1000G reference panel.,"){
+    "output NA or something like that"
+    ldpoxy_output <- cbind(snp, NA, NA,NA,NA)
+    colnames(ldpoxy_output) <- c("RS_Number", "CHR", "START", "REF", "ALT")
+  }else{
+    ## extract only those with R2 >= 0.9
+    my_proxies_keep <- my_proxies[which(my_proxies$R2 >= 0.9),c(1,2,3)]
+    ## remove those without rs number
+    my_proxies_keep2 <- my_proxies_keep[grep("rs", my_proxies_keep$RS_Number),]
+    ## remove those that are already in the dataset
+    my_proxies_keep3 <- my_proxies_keep2[-which(my_proxies_keep2$RS_Number %in% original_SNP),]
+    if(nrow(my_proxies_keep3) == 0){
+      ldpoxy_output <- cbind(snp, NA, NA,NA,NA)
+      colnames(ldpoxy_output) <- c("RS_Number", "CHR", "START", "REF", "ALT")
+    }else{
+      ## format coordinates
+      crdf <- do.call(rbind,strsplit(my_proxies_keep3$Coord,":"))
+      ## format alleles
+      alsdf <- do.call(rbind,strsplit(gsub("\\(|\\)", "", my_proxies_keep3$Alleles), "/"))
+      ldpoxy_output <- cbind(my_proxies_keep3$RS_Number, crdf,alsdf)
+      colnames(ldpoxy_output) <- c("RS_Number", "CHR", "START", "REF", "ALT")
+    }
+  }
+  return(ldpoxy_output)
+}  
+
