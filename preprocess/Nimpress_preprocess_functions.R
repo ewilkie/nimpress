@@ -146,33 +146,56 @@ get_cov <- function(snp_info){
 ##https://ldlink.nci.nih.gov/?var1=rs4948492&var2=rs4245597&pop=GBR&tab=ldpair
 ## could potentially also arise due to different issues, but the solution is to keep track of the new rsIDs and if that is already obtained, find another one, if no exist, drop the original rsID
 
+## Seems like there might be some dodgy output from LDproxy that needs to be checked against
+##https://www.ncbi.nlm.nih.gov/books/NBK44476/#Reports.dbsnp_reports_rs10512248_alleles
 
 #error: rs965506592 is not in 1000G reference panel.,
 
-getLDproxy <- function(snp, pop, token){
+
+
+getLDproxy <- function(snp, pop, token, SNP_kept){
   ## run Query
   my_proxies <- LDproxy(snp, pop = pop, r2d = "r2", token = token, file = FALSE)
-  if(my_proxies[1,1] == "  error: rs965506592 is not in 1000G reference panel.,"){
-    "output NA or something like that"
-    ldpoxy_output <- cbind(snp, NA, NA,NA,NA)
-    colnames(ldpoxy_output) <- c("RS_Number", "CHR", "START", "REF", "ALT")
+  ## error catching 
+  if(grepl("error", my_proxies[1,1]) == TRUE){
+    ldpoxy_output <- cbind(snp, NA, NA, NA,NA,NA)
+    colnames(ldpoxy_output) <- c("RSID_input", "RSID_Proxy", "CHR", "START", "REF", "ALT")
   }else{
-    ## extract only those with R2 >= 0.9
+    ## extract only those with R2 >= 0.9 
     my_proxies_keep <- my_proxies[which(my_proxies$R2 >= 0.9),c(1,2,3)]
     ## remove those without rs number
     my_proxies_keep2 <- my_proxies_keep[grep("rs", my_proxies_keep$RS_Number),]
     ## remove those that are already in the dataset
-    my_proxies_keep3 <- my_proxies_keep2[-which(my_proxies_keep2$RS_Number %in% original_SNP),]
+    my_proxies_keep3 <- my_proxies_keep2[-which(my_proxies_keep2$RS_Number %in% SNP_kept),]
     if(nrow(my_proxies_keep3) == 0){
-      ldpoxy_output <- cbind(snp, NA, NA,NA,NA)
-      colnames(ldpoxy_output) <- c("RS_Number", "CHR", "START", "REF", "ALT")
+      ldpoxy_output <- cbind(snp, NA, NA, NA,NA,NA)
+      colnames(ldpoxy_output) <- c("RSID_input", "RSID_Proxy", "CHR", "START", "REF", "ALT")
     }else{
       ## format coordinates
       crdf <- do.call(rbind,strsplit(my_proxies_keep3$Coord,":"))
       ## format alleles
       alsdf <- do.call(rbind,strsplit(gsub("\\(|\\)", "", my_proxies_keep3$Alleles), "/"))
-      ldpoxy_output <- cbind(my_proxies_keep3$RS_Number, crdf,alsdf)
-      colnames(ldpoxy_output) <- c("RS_Number", "CHR", "START", "REF", "ALT")
+      
+      ldpoxy_inter <- cbind(snp, my_proxies_keep3$RS_Number, crdf,alsdf)
+      colnames(ldpoxy_inter) <- c("RSID_input", "RSID_Proxy", "CHR", "START", "REF", "ALT")
+      ldpoxy_inter_df <- as.data.frame(ldpoxy_inter, stringAsFactors=F)
+      
+      ### remove those that aren't snps and aren't the 4 bases
+      rm1 <- which(nchar(ldpoxy_inter_df$REF) != 1)
+      rm2 <- which(nchar(ldpoxy_inter_df$ALT) != 1)
+      rm3 <- which(ldpoxy_inter_df$REF %!in% c("A","T","G","C"))
+      rm4 <- which(ldpoxy_inter_df$ALT %!in% c("A","T","G","C"))
+      rm_all <- unique(c(rm1, rm2,rm3, rm4))
+      ## if all removed
+      if(length(rm_all) == nrow(ldpoxy_inter_df)){
+        ldpoxy_output <- cbind(snp, NA, NA, NA,NA,NA)
+        colnames(ldpoxy_output) <- c("RSID_input", "RSID_Proxy", "CHR", "START", "REF", "ALT")
+      ## if non removed
+      }else if(length(rm_all) == 0){
+        ldpoxy_output <- ldpoxy_inter_df
+      }else{
+        ldpoxy_output <- ldpoxy_inter_df[-rm_all,]
+      }
     }
   }
   return(ldpoxy_output)
