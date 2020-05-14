@@ -67,6 +67,8 @@ check_gwas_file <- function(input){
 ## get rdID genomic location from dbSNP ##
 ##########################################
 
+x <- tax_list$DocumentSummary$DOCSUM
+
 ## extracts information from rsID dbSNP lookup: CHR, start, REF.Allele, ALT.Allele
 format_dbSNP <- function(x){
   ## extract assembly, genome position and variant details 
@@ -86,11 +88,21 @@ format_dbSNP <- function(x){
   df <- data.frame(NC_CHR,START, nt3)
   df2 <- unique(merge(assembly,df,by="NC_CHR"))
   df3 <- df2[,-1]
-  return(df3)
+  
+  ## if multiple alt alleles
+  if(nrow(df3) > 1){
+    df4 <- data.frame(CHR=unique(df3$CHR), START=unique(df3$START), REF=unique(df3$REF),ALT=paste(df3$ALT, collapse="|"), stringsAsFactors = F)
+  }else{
+    df4 <- df3
+  }
+  return(df4)
 }
 
 ## this function lookes up information in the dbSNP database for each rsID
-## same results as a list it handle if multiple ALT alleles exist
+## Multi Alt Alleles are collapsed so it works better with downstream functions 
+
+#rsid_input <- "rs3731217"
+rsid_input <- "rs7087507"
 
 getrsID_info <- function(rsid_input){
   snp_term <- paste(rsid_input, "[RS]", sep="")
