@@ -267,7 +267,7 @@ if(length(unique(urercov$bedcov)) == 1 & unique(urercov$bedcov) == FALSE){
 }else if (LDproxy_flag == "ON" & bedfile == "NULL"){
   ## do LDproxy & Sub 
   
-  #ela <- Sys.time()
+  ela <- Sys.time()
   
   ## only run LDproxy on unique results. 
   ldproxy_input <- unique(urercov$rsID)
@@ -275,32 +275,33 @@ if(length(unique(urercov$bedcov)) == 1 & unique(urercov$bedcov) == FALSE){
   SNP_kept <- ldproxy_input
   ldproxy_ls <- list()
   for(s in 1:length(ldproxy_input)){
-    ## last argument is to retain 
+    ## last argument is to retain this snps that are already in the list
     ldpoxy_res <- getLDproxy(ldporxy_input[s], arguments$LDproxy_pop, arguments$LDproxy_token, SNP_kept)
     
-    ## sub this with ldpoxy_res
-    ## keep one result only that is not already in dataset
-    ldpoxy_res_keep <- ldpoxy_res[which(ldpoxy_res$RSID_Proxy %!in% ldproxy_input)[1],]
+    ## if result is not NA and account for results length of 1 and more
+    if(!is.na(ldpoxy_res$RSID_Proxy[1])){
+      ## keep one result only that is not already in dataset
+      ldpoxy_res_keep <- ldpoxy_res[which(ldpoxy_res$RSID_Proxy %!in% ldproxy_input)[1],]
     
-    ## this is so that no duplicates appear in the data
-    SNP_kept <- c(SNP_kept,ldpoxy_res_keep$RSID_Proxy)
-    
+      ## this is so that no duplicates appear in the data
+      SNP_kept <- c(SNP_kept,ldpoxy_res_keep$RSID_Proxy)
+    }else{
+      ldpoxy_res_keep <- ldpoxy_res
+    }
     ##### combine ldproxy_res with orignal input 
     mres <- merge(urercov, ldpoxy_res_keep, by.x="rsID", by.y="RSID_input")
     ## remove duplicate alt alleles
-    if(!is.na(mres$RSID_Proxy) & length(unique(mres$ALT.ALLELE)) > 1) {
-      
-    }
-    
-    ldproxy_ls[[s]] <- ldpoxy_res
-  } 
-  #ela <- Sys.time() - ela
 
-  
+    ldproxy_ls[[s]] <- mres
+  } 
+  ela <- Sys.time() - ela
+
+  do.call(rbind, ldproxy_ls)
   
 ## do ldproxy and exlude those that fall in the bed regions 
 }else if (LDproxy_flag == "ON" & bedfile != "NULL"){
 
+    ## need to expand getLDproxy and ldpoxy_res_keep to take into account bedfile coverage
 
 }
 

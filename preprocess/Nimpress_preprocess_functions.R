@@ -102,7 +102,7 @@ format_dbSNP <- function(x){
 ## Multi Alt Alleles are collapsed so it works better with downstream functions 
 
 #rsid_input <- "rs3731217"
-rsid_input <- "rs7087507"
+#rsid_input <- "rs7087507"
 
 getrsID_info <- function(rsid_input){
   snp_term <- paste(rsid_input, "[RS]", sep="")
@@ -210,6 +210,7 @@ getLDproxy <- function(snp, pop, token, SNP_kept){
       }
     }
   }
-  return(ldpoxy_output)
+  ldpoxy_df <- as.data.frame(ldpoxy_output, stringsAsFactors = FALSE)
+  return(ldpoxy_df)
 }  
 
