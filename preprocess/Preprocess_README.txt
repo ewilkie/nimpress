@@ -14,6 +14,9 @@ Run script: Nimpress_preprocess_setup.sh in nimpress directory to install R pack
 ## Running Nimpress_preprocess.R ##
 ###################################
 
+Minimal command to run preprocessing: Rscript Nimpress_preprocess.R --file=Example/Example_File_to_process.csv --GRCh37
+
+
 To generate the required input format for NIMPRESS a preprocessing script can be used. This script, Nimpress_preprocess.R, requires the following minimum input parameters:
 
 --file <input file in format described below>
@@ -49,8 +52,9 @@ The underlying preprocessing script has the following functionality
 
 - convert OR to Beta via log transformation
 - query dbSNP to extract reference allele and genomic location. rsIDs which don't represent SNVs will be treated as unusable. If LDproxy is enabled, alternative rsIDs will be identified
-- if remove "black-listed genomic regions" flag is set or bed file is provided, if LDpoxy parameters are not set rsIDs that fall in those regions will be removed or if LDproxy parameters are set substituted with alternative rsIDs that have an LD value > 0.9 
+- if remove "black-listed genomic regions" flag is set or bed file is provided, if LDpoxy parameters are not set rsIDs that fall in those regions will be removed or if LDproxy parameters are set substituted with alternative rsIDs that have an LD value > 0.9
 - check for strand flipping and define correct alleles if strand flipping has occured
+
 
 Citatione for default black-listed genomic regions:
 Krusche, P., Trigg, L., Boutros, P.C. et al. 
