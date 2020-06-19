@@ -171,6 +171,8 @@ get_cov <- function(snp_info){
 ## https://www.cancer.gov/publications/dictionaries/genetics-dictionary/def/biallelic#:~:text=Of%20or%20pertaining%20to%20both,paternal%20and%20a%20maternal%20mutation).
 ## ldproxy only returns one allele as a result, while multuple alt alleles can be present in the data - so need to modify code to get those alt alleles from dnSnp with new RSID... 
 
+## check with: snp <- "rs312" and getrsID_info("rs316")
+
 ## certain rsIDs can be perfectly linked. 
 ## in this case the LDproxy rsID turned out to be the same
 ##https://ldlink.nci.nih.gov/?var1=rs4948492&var2=rs4245597&pop=GBR&tab=ldpair
@@ -263,11 +265,17 @@ getLDproxy <- function(snp, pop, token, SNP_kept){
         ldpoxy_inter_df2 <- ldpoxy_inter_df[-rm_all,]
         ## get ind of ldproxy without bedcov
         ldpoxy_output <- ldproxy_check_cov(ldpoxy_inter_df2)
+        ## need to get info on ALT alleles via different function 
+        ldpoxy_output2 <- cbind(snp, getrsID_info(ldpoxy_output$RSID_Proxy))
+        colnames(ldpoxy_output2)[1:2] <- c("RSID_input", "RSID_Proxy")                        
         
       ## if all returned rsIDs are good    
       }else{
         ## check for bed coverage before output 
         ldpoxy_output <- ldproxy_check_cov(ldpoxy_inter_df)
+        ## need to get info on ALT alleles via different function
+        ldpoxy_output2 <- cbind(snp, getrsID_info(ldpoxy_output$RSID_Proxy))
+        colnames(ldpoxy_output2)[1:2] <- c("RSID_input", "RSID_Proxy")       
       }
     }
   }
