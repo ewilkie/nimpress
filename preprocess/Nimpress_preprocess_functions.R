@@ -217,7 +217,7 @@ ldproxy_check_cov <- function(ldpoxy_inter_df2){
 ## return empty df (Quotes an issue?)
 LDproxy_NA_res <- function(snp){
   ldpoxy_output <- cbind(snp, NA, NA, NA,NA,NA)
-  colnames(ldpoxy_output) <- c("RSID_input", "RSID_Proxy", "CHR", "START", "REF", "ALT")
+  colnames(ldpoxy_output) <- c("RSID_input", "RSID_Proxy", "CHR", "START", "REF.ALLELE", "ALT.ALLELE")
   return(ldpoxy_output)
 }
 
@@ -227,7 +227,7 @@ getLDproxy <- function(snp, pop, token, SNP_kept){
   my_proxies <- LDproxy(snp, pop = pop, r2d = "r2", token = token, file = FALSE)
   ## error catching 
   if(grepl("error", my_proxies[1,1]) == TRUE){
-    ldpoxy_output <- LDproxy_NA_res(snp)
+    ldpoxy_output2 <- LDproxy_NA_res(snp)
 
   }else{
     ## extract only those with R2 >= 0.9 
@@ -237,7 +237,7 @@ getLDproxy <- function(snp, pop, token, SNP_kept){
     ## remove those that are already in the dataset
     my_proxies_keep3 <- my_proxies_keep2[which(my_proxies_keep2$RS_Number %!in% SNP_kept),]
     if(nrow(my_proxies_keep3) == 0){
-      ldpoxy_output <- LDproxy_NA_res(snp)
+      ldpoxy_output2 <- LDproxy_NA_res(snp)
     }else{
       ## format coordinates
       crdf <- do.call(rbind,strsplit(my_proxies_keep3$Coord,":"))
@@ -258,7 +258,7 @@ getLDproxy <- function(snp, pop, token, SNP_kept){
       
       ## if all removed
       if(length(rm_all) == nrow(ldpoxy_inter_df)){
-        ldpoxy_output <- LDproxy_NA_res(snp)
+        ldpoxy_output2 <- LDproxy_NA_res(snp)
         
       ## if some returned rsIDs are dodgy - remove
       }else if(length(rm_all) != 0){
@@ -266,7 +266,8 @@ getLDproxy <- function(snp, pop, token, SNP_kept){
         ## get ind of ldproxy without bedcov
         ldpoxy_output <- ldproxy_check_cov(ldpoxy_inter_df2)
         ## need to get info on ALT alleles via different function 
-        ldpoxy_output2 <- cbind(snp, getrsID_info(ldpoxy_output$RSID_Proxy))
+        lr <- lapply(ldpoxy_output$RSID_Proxy, getrsID_info)
+        ldpoxy_output2 <- cbind(snp, do.call(rbind, lr))
         colnames(ldpoxy_output2)[1:2] <- c("RSID_input", "RSID_Proxy")                        
         
       ## if all returned rsIDs are good    
@@ -274,12 +275,13 @@ getLDproxy <- function(snp, pop, token, SNP_kept){
         ## check for bed coverage before output 
         ldpoxy_output <- ldproxy_check_cov(ldpoxy_inter_df)
         ## need to get info on ALT alleles via different function
-        ldpoxy_output2 <- cbind(snp, getrsID_info(ldpoxy_output$RSID_Proxy))
+        lr <- lapply(ldpoxy_output$RSID_Proxy, getrsID_info)
+        ldpoxy_output2 <- cbind(snp, do.call(rbind, lr))
         colnames(ldpoxy_output2)[1:2] <- c("RSID_input", "RSID_Proxy")       
       }
     }
   }
-  ldpoxy_df <- as.data.frame(ldpoxy_output, stringsAsFactors = FALSE)
+  ldpoxy_df <- as.data.frame(ldpoxy_output2, stringsAsFactors = FALSE)
   return(ldpoxy_df)
 }  
 

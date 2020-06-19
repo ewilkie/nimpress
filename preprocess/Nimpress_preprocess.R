@@ -331,113 +331,28 @@ if(length(unique(urercov$bedcov)) == 1 & unique(urercov$bedcov) == FALSE){
       }
     }
     
-    ##### combine ldproxy_res with orignal input - this doesn't work if result is NA 
+    ## combine ldproxy_res with orignal input - automatically only uses bedcov == TRUE data
     mres <- merge(urercov, ldproxy_res_keep, by.x="rsID", by.y="RSID_input")
     ldproxy_ls[[s]] <- mres
   }
   
-  ela <- Sys.time() - ela
-
+  #ela <- Sys.time() - ela
+  
   LDproxy_df <- do.call(rbind, ldproxy_ls)
-  LDproxy_out <- LDproxy_df[!is.na(LDproxy_df$RSID_Proxy),]
+  LDproxy_in <- LDproxy_df[!is.na(LDproxy_df$RSID_Proxy),]
+  
+  ## format results that don't have bedcov
+  nocov_padd <- cbind(urercov[urercov$bedcov == FALSE,],NA,NA,NA,NA,NA)
+  colnames(nocov_padd) <- c("rsID","CHR.x","START.x","REF.ALLELE.x","ALT.ALLELE.x","bedcov","RSID_Proxy", "CHR.y", "START.y", "REF.ALLELE.y", "ALT.ALLELE.y")
+  
+  ## final output
+  LDproxy_out <- rbind(nocov_padd, LDproxy_in)
 }
-
-
-
-
-
-
 
   
 ########################## FROM OLD CODE --- DELETE once used ##############################
 
-
-## from old function. Undecided what to do with it   
-for(i in 1:length(coord_check)){
-  if(arguments$bed == "NULL"){
-    getALT <- getrsID_info(my_proxies_keep3[i,1])
-    if(!is.na(getALT)){
-      ALTcol <- paste(sort(as.vector(getALT$ALT.ALLELE)), collapse=",")
-      Alleles <- paste("(", unique(as.vector(getALT$REF.ALLELE)) , "/", ALTcol, ")", sep="")
-      new_rd <- c(as.matrix(my_proxies_keep3[i,1:2]), Alleles)
-      rsid_keep <- c(rsid_keep,as.vector(my_proxies_keep3[i,"RS_Number"]))
-      break
-    }else{
-      next
-    }
-  }else{
-    coord <- coord_check[i]
-    snp_chr <- sub("chr","" , sub('\\:.*', '', coord))
-    start <- as.numeric(sub("\\-.*", "", sub('.*\\:', '', coord)))
-    snp <- GRanges(seqnames=snp_chr, ranges=IRanges(start=start, end=start))
-    hits <- findOverlaps(gr,snp)
-    if(length(hits@from) > 0){
-      if(as.vector(my_proxies_keep3[i,"RS_Number"]) %!in% rsid_keep){
-        ## need to get all alternative allelse fot this new rsID 
-        getALT <- getrsID_info(as.vector(my_proxies_keep3[i,1]))
-        if(!is.na(getALT)){
-          ALTcol <- paste(sort(as.vector(getALT$all.alleles$ALT.ALLELE)), collapse=",")
-          Alleles <- paste("(", unique(as.vector(getALT$all.alleles$REF.ALLELE)) , "/", ALTcol, ")", sep="")
-          new_rd <- c(as.matrix(my_proxies_keep3[i,1:2]), Alleles)
-          rsid_keep <- c(rsid_keep,as.vector(my_proxies_keep3[i,"RS_Number"]))
-          break
-        }else{
-          next
-        }
-      }
-    }else{
-      new_rd <- NA
-    } 
-  }
-}
-
-
-
-
-## just for testting
-urercov[1,"bedcov"] <- TRUE
-
-rsid_keep <- vector()
-LDres <- list()
-for(n in 1:nrow(urercov)){
-  if(urercov[n,"bedcov"] == "TRUE"){
-    LD <- getLDproxy(as.vector(urercov[n,"rsID"]),arguments$LDproxy_pop, arguments$LDproxy_token)
-    if (length(LD) == 3){
-      coord <- strsplit(as.vector(LD[2]), ":")[[1]]
-      j <- as.vector(LD[3])
-      all <- regmatches(j, gregexpr("(?<=\\().*?(?=\\))", j, perl=T))[[1]]
-      ref <- strsplit(all, "/")[[1]][1]
-      alt <- strsplit(all, "/")[[1]][2]
-      res <- c(as.vector(LD[1]), gsub("chr", "", coord[1]), coord[2], ref, alt)
-      LDres[[n]] <- res
-      rsid_keep <- c(rsid_keep, as.vector(LD[1]))
-    }else if(is.na(LD)) {
-      LDres[[n]] <- NA
-    }
-  }else{
-    LDres[[n]] <- NA
-  }
-}
-
-
-LDres_mat <- do.call(rbind, LDres)
-if(ncol(LDres_mat) == 5){
-  colnames(LDres_mat) <- c("ALT.rsID", "ALT.chr", "ALT.start","REF.new", "ALT.new")
-}else{
-  ## when there are no LDproxy results, either all cov == TRUE or when cov == FALSE, but no proxy exists 
-  ## this is so code below doesn't break
-  LDres_mat <- cbind(LDres_mat, LDres_mat,LDres_mat,LDres_mat,LDres_mat)
-  colnames(LDres_mat) <- c("ALT.rsID", "ALT.chr", "ALT.start","REF.new", "ALT.new")
-}
-
-## combine original rsID and alternative
-comb <- as.data.frame(cbind(urercov,LDres_mat))
-
-
-
-
-
-
+## in file  /Users/ewilkie/Documents/Work/CCI/Polygenic/Nimpress_preprocess/Nimpress_preprocess_pipeline_V5.1.R
 
 
 
