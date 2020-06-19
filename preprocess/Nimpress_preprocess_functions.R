@@ -165,6 +165,12 @@ get_cov <- function(snp_info){
 
 # dbSNP version 151 (Database of Single Nucleotide Polymorphisms [DBSNP], 2007) is used to match query RS numbers with the genomic coordinates (GRCh37) of the SNPs of interest
 
+## from ldproxy website: https://ldlink.nci.nih.gov/?tab=help#LDproxy
+## RS number must match a bi-allelic variant.
+## definition of biallelic: Of or pertaining to both alleles of a single gene (paternal and maternal). For example, biallelic mutation carriers have a mutation (not necessarily the same mutation) in both copies of a particular gene (a paternal and a maternal mutation).
+## https://www.cancer.gov/publications/dictionaries/genetics-dictionary/def/biallelic#:~:text=Of%20or%20pertaining%20to%20both,paternal%20and%20a%20maternal%20mutation).
+## ldproxy only returns one allele as a result, while multuple alt alleles can be present in the data - so need to modify code to get those alt alleles from dnSnp with new RSID... 
+
 ## certain rsIDs can be perfectly linked. 
 ## in this case the LDproxy rsID turned out to be the same
 ##https://ldlink.nci.nih.gov/?var1=rs4948492&var2=rs4245597&pop=GBR&tab=ldpair
@@ -173,33 +179,70 @@ get_cov <- function(snp_info){
 ## Seems like there might be some dodgy output from LDproxy that needs to be checked against
 ##https://www.ncbi.nlm.nih.gov/books/NBK44476/#Reports.dbsnp_reports_rs10512248_alleles
 
+
+
 #error: rs965506592 is not in 1000G reference panel.,
 
+#snp <- "rs965506592"
+#snp <- "rs3731217"
+#pop <- arguments$LDproxy_pop
+#token <- arguments$LDproxy_token
+#s <- 1
+#snp <- ldproxy_input[s]
 
 
+## function to check ldproxy res for coverage
+ldproxy_check_cov <- function(ldpoxy_inter_df2){
+  ## format chr to work with get_cov function
+  ldpoxy_inter_df2$CHR <- gsub("chr", "", ldpoxy_inter_df2$CHR)
+  ## loop to get first resul with coverage 
+  res_ind <- vector()
+  for(ldp in 1:nrow(ldpoxy_inter_df2)){
+    gc <- get_cov(ldpoxy_inter_df2[ldp,])
+    if(gc == FALSE){
+      res_ind <- c(res_ind,ldp)
+    }
+  }
+  ##if none of the returned rsIDs have coverage
+  if(length(res_ind) == 0){
+    ldpoxy_output <- LDproxy_NA_res(snp)
+  }else{
+    ldpoxy_output <- ldpoxy_inter_df2[res_ind,]
+  }
+  return(ldpoxy_output)
+}
+
+## return empty df (Quotes an issue?)
+LDproxy_NA_res <- function(snp){
+  ldpoxy_output <- cbind(snp, NA, NA, NA,NA,NA)
+  colnames(ldpoxy_output) <- c("RSID_input", "RSID_Proxy", "CHR", "START", "REF", "ALT")
+  return(ldpoxy_output)
+}
+
+## main function to get LDproxy results 
 getLDproxy <- function(snp, pop, token, SNP_kept){
   ## run Query
   my_proxies <- LDproxy(snp, pop = pop, r2d = "r2", token = token, file = FALSE)
   ## error catching 
   if(grepl("error", my_proxies[1,1]) == TRUE){
-    ldpoxy_output <- cbind(snp, NA, NA, NA,NA,NA)
-    colnames(ldpoxy_output) <- c("RSID_input", "RSID_Proxy", "CHR", "START", "REF", "ALT")
+    ldpoxy_output <- LDproxy_NA_res(snp)
+
   }else{
     ## extract only those with R2 >= 0.9 
     my_proxies_keep <- my_proxies[which(my_proxies$R2 >= 0.9),c(1,2,3)]
     ## remove those without rs number
     my_proxies_keep2 <- my_proxies_keep[grep("rs", my_proxies_keep$RS_Number),]
     ## remove those that are already in the dataset
-    my_proxies_keep3 <- my_proxies_keep2[-which(my_proxies_keep2$RS_Number %in% SNP_kept),]
+    my_proxies_keep3 <- my_proxies_keep2[which(my_proxies_keep2$RS_Number %!in% SNP_kept),]
     if(nrow(my_proxies_keep3) == 0){
-      ldpoxy_output <- cbind(snp, NA, NA, NA,NA,NA)
-      colnames(ldpoxy_output) <- c("RSID_input", "RSID_Proxy", "CHR", "START", "REF", "ALT")
+      ldpoxy_output <- LDproxy_NA_res(snp)
     }else{
       ## format coordinates
       crdf <- do.call(rbind,strsplit(my_proxies_keep3$Coord,":"))
       ## format alleles
       alsdf <- do.call(rbind,strsplit(gsub("\\(|\\)", "", my_proxies_keep3$Alleles), "/"))
       
+      ## format results df
       ldpoxy_inter <- cbind(snp, my_proxies_keep3$RS_Number, crdf,alsdf)
       colnames(ldpoxy_inter) <- c("RSID_input", "RSID_Proxy", "CHR", "START", "REF", "ALT")
       ldpoxy_inter_df <- as.data.frame(ldpoxy_inter, stringAsFactors=F)
@@ -210,15 +253,21 @@ getLDproxy <- function(snp, pop, token, SNP_kept){
       rm3 <- which(ldpoxy_inter_df$REF %!in% c("A","T","G","C"))
       rm4 <- which(ldpoxy_inter_df$ALT %!in% c("A","T","G","C"))
       rm_all <- unique(c(rm1, rm2,rm3, rm4))
+      
       ## if all removed
       if(length(rm_all) == nrow(ldpoxy_inter_df)){
-        ldpoxy_output <- cbind(snp, NA, NA, NA,NA,NA)
-        colnames(ldpoxy_output) <- c("RSID_input", "RSID_Proxy", "CHR", "START", "REF", "ALT")
-      ## if non removed
-      }else if(length(rm_all) == 0){
-        ldpoxy_output <- ldpoxy_inter_df
+        ldpoxy_output <- LDproxy_NA_res(snp)
+        
+      ## if some returned rsIDs are dodgy - remove
+      }else if(length(rm_all) != 0){
+        ldpoxy_inter_df2 <- ldpoxy_inter_df[-rm_all,]
+        ## get ind of ldproxy without bedcov
+        ldpoxy_output <- ldproxy_check_cov(ldpoxy_inter_df2)
+        
+      ## if all returned rsIDs are good    
       }else{
-        ldpoxy_output <- ldpoxy_inter_df[-rm_all,]
+        ## check for bed coverage before output 
+        ldpoxy_output <- ldproxy_check_cov(ldpoxy_inter_df)
       }
     }
   }

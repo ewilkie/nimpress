@@ -92,7 +92,7 @@ arguments$LDproxy_token ="cbe1b45bc8be"
 ## LDproxy
 
 ## is there a better way to do the token check than to run a test query and capture the error as string? 
-## is LDproxy batch faster? 
+## is LDproxy batch faster? - well be a mess to implement to check for which ones are kept and coverage
 ## to do about errors from LDproxy: 
 ## error: rs965506592 is not in 1000G reference panel.,
 ## error: rs334 is monoallelic in the GBR population.,
@@ -205,7 +205,7 @@ message("[5/..] Starting file processing...")
 ## set up loop when single run is finished
 #for(f in 1:length(master_file.list)){
 #}
-f <- 2
+f <- 1
 
 message(paste("[", 5+f ,"/..] Processing file: ", master_file.list[[f]]$GWAS_summary_statistic_file_and_path, sep="" ))
 input <- master_file.list[[f]]$GWAS_summary_statistic_file_and_path
@@ -277,18 +277,14 @@ if(bedfile == "NULL"){
 
 ## ldproxy takes 8.791638 mins for 10 SNPS, so a bit under a minute for 1
 
-snp <- "rs965506592"
-pop <- arguments$LDproxy_pop
-token <- arguments$LDproxy_token
-n <- 1
-snp <- as.vector(urercov[n,"rsID"])
 
-snp <- "rs3731217"
 
 
 ## if no bedfile all bedcov will equal FALSE, if no fall in region no sub needed
 if(length(unique(urercov$bedcov)) == 1 & unique(urercov$bedcov) == FALSE){
   ## write output
+  
+  #LDproxy_out <- rsID CHR.x  START.x REF.ALLELE ALT.ALLELE bedcov RSID_Proxy CHR.y  START.y  REF  ALT
   
 ## if LDproxy not used and bedfile provided, remove those without coverage. 
 }else if (LDproxy_flag == "OFF" & bedfile != "NULL"){
@@ -296,46 +292,62 @@ if(length(unique(urercov$bedcov)) == 1 & unique(urercov$bedcov) == FALSE){
   message("rsID without coverage will be removed")
   message("If however you would like those rsIDs without coverage to be substituted, add --remove_blacklisted_regions in commandline parameters")
   #-------> LOG FILE those that are removed should be put into "log file"
-  ## need to know output format for downstream
+  
+  #LDproxy_out <- rsID CHR.x  START.x REF.ALLELE ALT.ALLELE bedcov RSID_Proxy CHR.y  START.y  REF  ALT
   
 ## if ldproxy is on but bedile not provided, don't need to do resub -- however LDproxy only needs to be done for thise falling in the bed region. So with bedfile both sub and resub are needed without bedfile don't know which to sub or whether its necesery so put an error flag to say, that LDproxy requires bedfile 
 }else if (LDproxy_flag == "ON" & bedfile == "NULL"){
   message("LDproxy required bedfile for sub")
-
+  #LDproxy_out <- rsID CHR.x  START.x REF.ALLELE ALT.ALLELE bedcov RSID_Proxy CHR.y  START.y  REF  ALT
     
 ## do ldproxy and exlude those that fall in the bed regions  - do sub and resub
 }else if (LDproxy_flag == "ON" & bedfile != "NULL"){
   
-  ## need to expand getLDproxy and ldpoxy_res_keep to take into account bedfile coverage - resub
   ela <- Sys.time()
   
-  ## only run LDproxy on unique results. 
-  ldproxy_input <- unique(urercov$rsID)
+  ## only run LDproxy on unique results for those that don't have coverage
+  ldproxy_input <- unique(urercov[which(urercov$bedcov == TRUE),"rsID"])
   ## to keep track of which RSids are already in DF, without expanding loop 
-  SNP_kept <- ldproxy_input
+  SNP_kept <- unique(urercov[which(urercov$bedcov == FALSE),"rsID"])
+  
   ldproxy_ls <- list()
   for(s in 1:length(ldproxy_input)){
-    ## last argument is to retain this snps that are already in the list
-    ldpoxy_res <- getLDproxy(ldproxy_input[s], arguments$LDproxy_pop, arguments$LDproxy_token, SNP_kept)
-    ## if result is not NA and account for results length of 1 and more
-    if(!is.na(ldpoxy_res$RSID_Proxy[1])){
-      ## keep one result only that is not already in dataset
-      ldpoxy_res_keep <- ldpoxy_res[which(ldpoxy_res$RSID_Proxy %!in% ldproxy_input)[1],]
-      ## this is so that no duplicates appear in the data
-      SNP_kept <- c(SNP_kept,ldpoxy_res_keep$RSID_Proxy)
+    ## need to implement collapse of duplicate alt alleles - 
+    ldproxy_res <- getLDproxy(ldproxy_input[s], arguments$LDproxy_pop, arguments$LDproxy_token, SNP_kept)
+    
+    ## if results is NA add it anyways for later removal 
+    if(is.na(ldproxy_res$RSID_Proxy)[1]){
+      ldproxy_res_keep <- ldproxy_res
     }else{
-      ldpoxy_res_keep <- ldpoxy_res
+      ## check which not in dataset 
+      wni <- which(ldproxy_res$RSID_Proxy %!in% SNP_kept)
+      if(length(wni) == 0){
+        ldproxy_res_keep <- LDproxy_NA_res(ldproxy_input[s])
+      }else{
+        ## keep one result only that is not already in dataset
+        ldproxy_res_keep <- ldproxy_res[wni[1],]
+        ## this is so that no duplicates appear in the data
+        SNP_kept <- c(SNP_kept,ldproxy_res_keep$RSID_Proxy)
+      }
     }
-    ##### combine ldproxy_res with orignal input 
-    mres <- merge(urercov, ldpoxy_res_keep, by.x="rsID", by.y="RSID_input")
-    ## remove duplicate alt alleles
+    
+    ##### combine ldproxy_res with orignal input - this doesn't work if result is NA 
+    mres <- merge(urercov, ldproxy_res_keep, by.x="rsID", by.y="RSID_input")
     ldproxy_ls[[s]] <- mres
-  } 
+  }
+  
   ela <- Sys.time() - ela
 
-  do.call(rbind, ldproxy_ls)
-  
+  LDproxy_df <- do.call(rbind, ldproxy_ls)
+  LDproxy_out <- LDproxy_df[!is.na(LDproxy_df$RSID_Proxy),]
 }
+
+
+
+
+
+
+
   
 ########################## FROM OLD CODE --- DELETE once used ##############################
 
