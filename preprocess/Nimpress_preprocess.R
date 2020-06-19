@@ -82,6 +82,8 @@ arguments$LDproxy_token ="cbe1b45bc8be"
 ## preprocess setup file needs to be completed
 ## implement error catching for blacklist file download
 
+## double check that bedcove TRUE/FALSE does the right thing since I changed the coding of this variable 
+
 ## set up look to run master file list or composite of file??
 
 ## GRCh38 - but need different file for that - don't need to these ldproxy with this since it doesn't require 
@@ -196,7 +198,7 @@ message("[5/..] Starting file processing...")
 ## set up loop when single run is finished
 #for(f in 1:length(master_file.list)){
 #}
-f <- 1
+f <- 2
 
 message(paste("[", 5+f ,"/..] Processing file: ", master_file.list[[f]]$GWAS_summary_statistic_file_and_path, sep="" ))
 input <- master_file.list[[f]]$GWAS_summary_statistic_file_and_path
@@ -205,8 +207,10 @@ input <- master_file.list[[f]]$GWAS_summary_statistic_file_and_path
 gf_ok <- check_gwas_file(input)
 #print(gf_ok)
 
-## extract unique rsID
+
+## get indext of rsID column
 rsID_ind <- grep("rsID", colnames(gf_ok))
+## extract rsID and make unique
 rsID <- gf_ok[,rsID_ind]
 rsIDu <- as.vector(unique(rsID))
   
@@ -254,10 +258,9 @@ if(bedfile == "NULL"){
 #ela <- Sys.time() - ela
 #print(ela)
 
-########!!!!!!!! since cov file type has changed FALSE now means that no removal
-urercov[, "bedcov"] <- TRUE
-
-########!!!!! can't input urercov directly into getLDproxy since there are duplicated due to different alternative allels!!! 
+########!!!!!!!! since cov file type has changed FALSE now means that no removal - check this correct 
+## updated input file contains some FALSE and SOME TRUE 
+#urercov[, "bedcov"] <- TRUE
 
 #############
 ## LDproxy ##
@@ -282,12 +285,21 @@ if(length(unique(urercov$bedcov)) == 1 & unique(urercov$bedcov) == FALSE){
   
 ## if LDproxy not used and bedfile provided, remove those without coverage. 
 }else if (LDproxy_flag == "OFF" & bedfile != "NULL"){
+  message("Remove blacklisted regions enabled, but LDproxy disabled...")
+  message("rsID without coverage will be removed")
+  message("If however you would like those rsIDs without coverage to be substituted, add --remove_blacklisted_regions in commandline parameters")
   #-------> LOG FILE those that are removed should be put into "log file"
   ## need to know output format for downstream
   
-## if ldproxy is on but bedile not provided, don't need to do resub
+## if ldproxy is on but bedile not provided, don't need to do resub -- however LDproxy only needs to be done for thise falling in the bed region. So with bedfile both sub and resub are needed without bedfile don't know which to sub or whether its necesery so put an error flag to say, that LDproxy requires bedfile 
 }else if (LDproxy_flag == "ON" & bedfile == "NULL"){
-  ## do LDproxy & Sub 
+  message("LDproxy required bedfile for sub")
+
+    
+## do ldproxy and exlude those that fall in the bed regions  - do sub and resub
+}else if (LDproxy_flag == "ON" & bedfile != "NULL"){
+  
+  ## need to expand getLDproxy and ldpoxy_res_keep to take into account bedfile coverage
   
   ela <- Sys.time()
   
@@ -298,13 +310,11 @@ if(length(unique(urercov$bedcov)) == 1 & unique(urercov$bedcov) == FALSE){
   ldproxy_ls <- list()
   for(s in 1:length(ldproxy_input)){
     ## last argument is to retain this snps that are already in the list
-    ldpoxy_res <- getLDproxy(ldporxy_input[s], arguments$LDproxy_pop, arguments$LDproxy_token, SNP_kept)
-    
+    ldpoxy_res <- getLDproxy(ldproxy_input[s], arguments$LDproxy_pop, arguments$LDproxy_token, SNP_kept)
     ## if result is not NA and account for results length of 1 and more
     if(!is.na(ldpoxy_res$RSID_Proxy[1])){
       ## keep one result only that is not already in dataset
       ldpoxy_res_keep <- ldpoxy_res[which(ldpoxy_res$RSID_Proxy %!in% ldproxy_input)[1],]
-    
       ## this is so that no duplicates appear in the data
       SNP_kept <- c(SNP_kept,ldpoxy_res_keep$RSID_Proxy)
     }else{
@@ -313,19 +323,15 @@ if(length(unique(urercov$bedcov)) == 1 & unique(urercov$bedcov) == FALSE){
     ##### combine ldproxy_res with orignal input 
     mres <- merge(urercov, ldpoxy_res_keep, by.x="rsID", by.y="RSID_input")
     ## remove duplicate alt alleles
-
     ldproxy_ls[[s]] <- mres
   } 
   ela <- Sys.time() - ela
 
   do.call(rbind, ldproxy_ls)
   
-## do ldproxy and exlude those that fall in the bed regions 
-}else if (LDproxy_flag == "ON" & bedfile != "NULL"){
-
-    ## need to expand getLDproxy and ldpoxy_res_keep to take into account bedfile coverage
-
 }
+  
+########################## FROM OLD CODE --- DELETE once used ##############################
 
 
 ## from old function. Undecided what to do with it   
