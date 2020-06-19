@@ -5,6 +5,18 @@
 ## Not in function
 '%!in%' <- function(x,y)!('%in%'(x,y));
 
+##################
+## load bedfile ##
+##################
+
+
+bedfile_to_Granges <- function(bedfile){
+  ovlp <- fread(bedfile, header = FALSE, stringsAsFactors = FALSE)
+  colnames(ovlp) <- c("chr", "start", "end")
+  gr <- makeGRangesFromDataFrame(ovlp, keep.extra.columns = TRUE,starts.in.df.are.0based=TRUE)
+}
+
+
 ###########################
 ## processing input file ##
 ###########################

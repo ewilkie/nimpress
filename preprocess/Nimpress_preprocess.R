@@ -27,7 +27,7 @@ pacman::p_load(docopt)
 
 'NIMPRESS preprocess
 Usage:
-  Nimpress_preprocess.R --file=<file_to_process> (--GRCh37 | --GRCh38) [(--LDproxy_pop=<BG population> --LDproxy_token=<token>) --remove_blacklisted_regions --outpath=<outpath> --offset=<offset>]  
+  Nimpress_preprocess.R --file=<file_to_process> (--GRCh37 | --GRCh38) [(--LDproxy_pop=<BG population> --LDproxy_token=<token>) (--blacklisted_regions_file=<bed> | --remove_blacklisted_regions) --outpath=<outpath> --offset=<offset>]  
   Nimpress_preprocess.R --file=<file_to_process> --GRCh37 --remove_blacklisted_regions
   Nimpress_preprocess.R --file=<file_to_process> --GRCh37 --remove_blacklisted_regions --LDproxy_pop=<BG population> --LDproxy_token=<token>
   Nimpress_preprocess.R --file=<file_to_process> --GRCh37 --LDproxy_pop=<BG population> --LDproxy_token=<token>
@@ -47,8 +47,6 @@ Arguments:
 
     --GRCh37              use genome version GRCh37
     --GRCh38              use genome version GRCh38
-    
-    --remove_blacklisted_regions    Remove rsISs that fall in difficult to sequence regions 
      
 Options:
   -h --help                         Show this screen.
@@ -57,6 +55,8 @@ Options:
   --offset=<offset>                 Offset for NIMPRESS [DEFAULT: 0.0]
   --LDproxy_pop=<BG population>     Background populations for LDproxy
   --LDproxy_token=<token>           Generate token via https://ldlink.nci.nih.gov/?tab=apiaccess
+  --remove_blacklisted_regions      Difficult to sequence regions from GIAB for rsID removal/substitution
+  --blacklisted_regions_file=<bed>   Provide different bedfile for rsID removal/substitution 
 
     
 ' -> doc
@@ -70,7 +70,8 @@ setwd("/Users/ewilkie/Documents/Work/CCI/Polygenic/nimpress/preprocess")
 arguments <- list()
 arguments$GRCh37 = TRUE
 arguments$GRCh38 = FALSE
-arguments$remove_blacklisted_regions = TRUE
+#arguments$remove_blacklisted_regions = TRUE
+arguments$blacklisted_regions_file = "/Users/ewilkie/Documents/Work/CCI/CCI_general_data_files/GRCh37_alldifficultregions.tier3.sorted.merged.sorted.bed"
 arguments$file = "Example/Example_File_to_process.csv"
 arguments$LDproxy_pop ="GBR"
 arguments$LDproxy_token ="cbe1b45bc8be"
@@ -95,6 +96,11 @@ arguments$LDproxy_token ="cbe1b45bc8be"
 ## to do about errors from LDproxy: 
 ## error: rs965506592 is not in 1000G reference panel.,
 ## error: rs334 is monoallelic in the GBR population.,
+
+## from readME: "rsIDs which don't represent SNVs will be treated as unusable" -> has this been implemented? 
+
+## might need to rearrange order of operation so that it errors are caught at the start and not after massive proprocessing 
+## such as LDproxy flag = On but Bedfile=NULL
 
 ###################
 ###################
@@ -139,13 +145,14 @@ colnames(assembly) <- c("CHR", "NC_CHR")
 ## setup blacklisted genome bed file ##
 #######################################
 
-if(arguments$remove_blacklisted_regions == TRUE){
-  ## error catching for blacklist file download
+if(arguments$remove_blacklisted_regions == TRUE ){
+  ## add error catching for blacklist file download - this is in preprocessing script
+  #bedfile <- path to dowloaded bed
+  #bedfile_to_Granges()
+}else if(!is.null(arguments$blacklisted_regions_file)){
   ## hardcode file in for now
-  bedfile = "/Users/ewilkie/Documents/Work/CCI/CCI_general_data_files/GRCh37_alldifficultregions.tier3.sorted.merged.sorted.bed"
-  ovlp <- fread(bedfile, header = FALSE, stringsAsFactors = FALSE)
-  colnames(ovlp) <- c("chr", "start", "end")
-  gr <- makeGRangesFromDataFrame(ovlp, keep.extra.columns = TRUE,starts.in.df.are.0based=TRUE)
+  bedfile <- arguments$blacklisted_regions_file
+  gr <- bedfile_to_Granges(bedfile)
 }else{
   bedfile = NULL
 }
@@ -299,8 +306,7 @@ if(length(unique(urercov$bedcov)) == 1 & unique(urercov$bedcov) == FALSE){
 ## do ldproxy and exlude those that fall in the bed regions  - do sub and resub
 }else if (LDproxy_flag == "ON" & bedfile != "NULL"){
   
-  ## need to expand getLDproxy and ldpoxy_res_keep to take into account bedfile coverage
-  
+  ## need to expand getLDproxy and ldpoxy_res_keep to take into account bedfile coverage - resub
   ela <- Sys.time()
   
   ## only run LDproxy on unique results. 
