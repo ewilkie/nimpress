@@ -65,7 +65,7 @@ print(arguments)
 stop("just checking arguments")
 
 ## for testing only 
-setwd("/Users/ewilkie/Documents/Polygenic/nimpress/preprocess/")
+setwd("/Users/ewilkie/Documents/Work/CCI/Polygenic/nimpress/preprocess")
 arguments <- list()
 arguments$GRCh37 = TRUE
 arguments$GRCh38 = TRUE

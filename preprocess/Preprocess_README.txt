@@ -14,7 +14,7 @@ Run script: Nimpress_preprocess_setup.sh in nimpress directory to install R pack
 ## Running Nimpress_preprocess.R ##
 ###################################
 
-Minimal command to run preprocessing: Rscript Nimpress_preprocess.R --file=Example/Example_File_to_process.csv --GRCh37
+Minimal command to run preprocessing: Rscript Nimpress_preprocess.R --file=Example/Example_File_to_process.csv --GRCh37 --blacklisted_bed=/Users/ewilkie/Documents/Work/CCI/CCI_general_data_files/GRCh37_alldifficultregions.bed
 
 
 To generate the required input format for NIMPRESS a preprocessing script can be used. This script, Nimpress_preprocess.R, requires the following minimum input parameters:
