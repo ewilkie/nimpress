@@ -27,9 +27,9 @@ pacman::p_load(docopt)
 
 'NIMPRESS preprocess
 Usage:
-  Nimpress_preprocess.R --file=<file_to_process> (--GRCh37 | --GRCh38) [(--LDproxy_pop=<BG population> --LDproxy_token=<token>) --blacklisted_bed=<bed> --outpath=<outpath> --offset=<offset>]  
-  Nimpress_preprocess.R --file=<file_to_process> --GRCh37 --blacklisted_bed=<bed>
-  Nimpress_preprocess.R --file=<file_to_process> --GRCh37 --blacklisted_bed=<bed> --LDproxy_pop=<BG population> --LDproxy_token=<token>
+  Nimpress_preprocess.R --file=<file_to_process> (--GRCh37 | --GRCh38) [(--LDproxy_pop=<BG population> --LDproxy_token=<token>) --remove_blacklisted_regions --outpath=<outpath> --offset=<offset>]  
+  Nimpress_preprocess.R --file=<file_to_process> --GRCh37 --remove_blacklisted_regions
+  Nimpress_preprocess.R --file=<file_to_process> --GRCh37 --remove_blacklisted_regions --LDproxy_pop=<BG population> --LDproxy_token=<token>
   Nimpress_preprocess.R --file=<file_to_process> --GRCh37 --LDproxy_pop=<BG population> --LDproxy_token=<token>
   Nimpress_preprocess.R (-h | --help)
   Nimpress_preprocess.R --version
@@ -47,13 +47,14 @@ Arguments:
 
     --GRCh37              use genome version GRCh37
     --GRCh38              use genome version GRCh38
+    
+    --remove_blacklisted_regions    Remove rsISs that fall in difficult to sequence regions 
      
 Options:
   -h --help                         Show this screen.
   --version                         Show version.
   --outpath=<outpath>               Path to output location [DEFAULT: ./Nimpress_preprocess_Output]
   --offset=<offset>                 Offset for NIMPRESS [DEFAULT: 0.0]
-  --blacklisted_bed=<bed>           Blacklisted bed region
   --LDproxy_pop=<BG population>     Background populations for LDproxy
   --LDproxy_token=<token>           Generate token via https://ldlink.nci.nih.gov/?tab=apiaccess
 
@@ -69,7 +70,7 @@ setwd("/Users/ewilkie/Documents/Work/CCI/Polygenic/nimpress/preprocess")
 arguments <- list()
 arguments$GRCh37 = TRUE
 arguments$GRCh38 = FALSE
-arguments$blacklisted_bed = "/Users/ewilkie/Documents/Work/CCI/CCI_general_data_files/GRCh37_alldifficultregions.bed"
+arguments$remove_blacklisted_regions = TRUE
 arguments$file = "Example/Example_File_to_process.csv"
 arguments$LDproxy_pop ="GBR"
 arguments$LDproxy_token ="cbe1b45bc8be"
@@ -77,6 +78,11 @@ arguments$LDproxy_token ="cbe1b45bc8be"
 ##########################################
 ## testing that still needs to be done: ##
 ##########################################
+
+## preprocess setup file needs to be completed
+## implement error catching for blacklist file download
+
+## set up look to run master file list or composite of file??
 
 ## GRCh38 - but need different file for that - don't need to these ldproxy with this since it doesn't require 
 
@@ -89,7 +95,9 @@ arguments$LDproxy_token ="cbe1b45bc8be"
 ## error: rs334 is monoallelic in the GBR population.,
 
 ###################
+###################
 ## Initial setup ##
+###################
 ###################
 
 ## load processing functions files
@@ -129,8 +137,10 @@ colnames(assembly) <- c("CHR", "NC_CHR")
 ## setup blacklisted genome bed file ##
 #######################################
 
-if(!is.null(arguments$blacklisted_bed)){
-  bedfile = arguments$blacklisted_bed
+if(arguments$remove_blacklisted_regions == TRUE){
+  ## error catching for blacklist file download
+  ## hardcode file in for now
+  bedfile = "/Users/ewilkie/Documents/Work/CCI/CCI_general_data_files/GRCh37_alldifficultregions.tier3.sorted.merged.sorted.bed"
   ovlp <- fread(bedfile, header = FALSE, stringsAsFactors = FALSE)
   colnames(ovlp) <- c("chr", "start", "end")
   gr <- makeGRangesFromDataFrame(ovlp, keep.extra.columns = TRUE,starts.in.df.are.0based=TRUE)
@@ -174,14 +184,21 @@ message("[4/..] Reading master file...")
 master_file <- read.table(arguments$file, sep=",", header=T)
 master_file.list <- split(master_file, seq(nrow(master_file)))
 
+
+#####################
+#####################
+## File processing ##
+#####################
+#####################
+
 message("[5/..] Starting file processing...")
 
 ## set up loop when single run is finished
 #for(f in 1:length(master_file.list)){
 #}
-f <- 2
+f <- 1
 
-message(paste("[", 3+f ,"/..] Processing file:", master_file.list[[f]]$GWAS_summary_statistic_file_and_path, sep="" ))
+message(paste("[", 5+f ,"/..] Processing file: ", master_file.list[[f]]$GWAS_summary_statistic_file_and_path, sep="" ))
 input <- master_file.list[[f]]$GWAS_summary_statistic_file_and_path
 
 ## check and format input file
