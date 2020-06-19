@@ -68,9 +68,9 @@ stop("just checking arguments")
 setwd("/Users/ewilkie/Documents/Work/CCI/Polygenic/nimpress/preprocess")
 arguments <- list()
 arguments$GRCh37 = TRUE
-arguments$GRCh38 = TRUE
-arguments$blacklisted_bed = "/Users/ewilkie/Documents/CCI_general_data_files/GRCh37_alldifficultregions.bed"
-arguments$file = "./Example/Example_File_to_process.csv"
+arguments$GRCh38 = FALSE
+arguments$blacklisted_bed = "/Users/ewilkie/Documents/Work/CCI/CCI_general_data_files/GRCh37_alldifficultregions.bed"
+arguments$file = "Example/Example_File_to_process.csv"
 arguments$LDproxy_pop ="GBR"
 arguments$LDproxy_token ="cbe1b45bc8be"
 
@@ -78,10 +78,13 @@ arguments$LDproxy_token ="cbe1b45bc8be"
 ## testing that still needs to be done: ##
 ##########################################
 
+## GRCh38 - but need different file for that - don't need to these ldproxy with this since it doesn't require 
 
-## GRCh38 - but need different file for that
-## to do about errors from LDproxy: 
+## LDproxy
+
+## is there a better way to do the token check than to run a test query and capture the error as string? 
 ## is LDproxy batch faster? 
+## to do about errors from LDproxy: 
 ## error: rs965506592 is not in 1000G reference panel.,
 ## error: rs334 is monoallelic in the GBR population.,
 
@@ -89,12 +92,16 @@ arguments$LDproxy_token ="cbe1b45bc8be"
 ## Initial setup ##
 ###################
 
+## load processing functions files
+source("Nimpress_preprocess_functions.R")
+
 ###############
 ## libraries ##
 ###############
 
+## LDlinkR gets loaded later if used since it takes a while to install
 message("[1/..] Loading libraries...")
-pacman::p_load(data.table,GenomicRanges,rentrez, )
+pacman::p_load(data.table,GenomicRanges,rentrez)
 ## rentrez,bedr,LDlinkR,stringr,GenomicRanges
 
 ###################
@@ -106,10 +113,10 @@ message("[2/..] Setting up genomic environment...")
 ## get the correct assembly file
 if(arguments$GRCh37 == TRUE){
   gv <- "GRCh37"
-  assembly_file <- "./Suppl/GCF_000001405.13_GRCh37_assembly_report.txt"
+  assembly_file <- "Suppl/GCF_000001405.13_GRCh37_assembly_report.txt"
 }else if (arguments$GRCh38 == TRUE){
   gv <- "GRCh38"
-  assembly_file <- "./Suppl/GCF_000001405.26_GRCh38_assembly_report.txt"
+  assembly_file <- "Suppl/GCF_000001405.26_GRCh38_assembly_report.txt"
 }
 
 ass <- read.table(assembly_file, header=F, sep="\t",stringsAsFactors = F)
@@ -135,9 +142,6 @@ if(!is.null(arguments$blacklisted_bed)){
 ## LDproxy ##
 #############
 
-## check LDproxy input 
-pop <- list_pop()
-bgpc <- pop$pop_code
 ## check if LDproxy is on
 LDproxy_flag = "OFF"
 if(!is.null(arguments$LDproxy_pop) & !is.null(arguments$LDproxy_token) & arguments$GRCh38 == TRUE){
@@ -145,10 +149,14 @@ if(!is.null(arguments$LDproxy_pop) & !is.null(arguments$LDproxy_token) & argumen
 } else if(!is.null(arguments$LDproxy_pop) & !is.null(arguments$LDproxy_token) && arguments$GRCh37 == TRUE){
   message("[3/..] Testing LDproxy parameters... ")
   pacman::p_load(LDlinkR)
+  ## to check LDproxy pop input - get all available pops from package
+  pop <- list_pop()
+  bgpc <- pop$pop_code
   ## check valid background population
   if(arguments$LDproxy_pop %!in% bgpc){
     stop(paste(arguments$LDproxy_pop, " is not a valid background population. Select one from: ", paste(bgpc, collapse=",") , sep="" ))
   }
+  ## test query
   testproxy <- LDproxy("rs456", arguments$LDproxy_pop, "r2", token = arguments$LDproxy_token)
   if(testproxy[1,1] != "  error: Invalid or expired API token. Please register using the API Access tab: https://ldlink.nci.nih.gov/?tab=apiaccess,"){
     message("LDproxy parameters ok")
@@ -165,9 +173,6 @@ message("[4/..] Reading master file...")
 
 master_file <- read.table(arguments$file, sep=",", header=T)
 master_file.list <- split(master_file, seq(nrow(master_file)))
-
-## load processing functions files
-source("./Nimpress_preprocess_functions.R")
 
 message("[5/..] Starting file processing...")
 

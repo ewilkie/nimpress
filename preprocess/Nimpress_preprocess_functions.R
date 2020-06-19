@@ -67,7 +67,7 @@ check_gwas_file <- function(input){
 ## get rdID genomic location from dbSNP ##
 ##########################################
 
-x <- tax_list$DocumentSummary$DOCSUM
+#x <- tax_list$DocumentSummary$DOCSUM
 
 ## extracts information from rsID dbSNP lookup: CHR, start, REF.Allele, ALT.Allele
 format_dbSNP <- function(x){
