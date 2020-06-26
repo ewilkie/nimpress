@@ -272,8 +272,10 @@ for(rs in 1:nrow(SNP_info)){
     strand[[rs]] <- NA
   }
   
-  if(complement(SNP_info[rs,"REF.ALLELE"]) %in% stp[[rs]]){
+  if(length(stp[[rs]]) == 1 && complement(SNP_info[rs,"REF.ALLELE"]) == stp[[rs]]){
     ambig[[rs]] <- "Y"
+  }else if (length(stp[[rs]]) > 1 && complement(SNP_info[rs,"REF.ALLELE"]) %in% stp[[rs]]){
+    ambig[[rs]] <- "D"
   }else{
     ambig[[rs]] <- "N"
   }
@@ -305,12 +307,62 @@ flipped <- list()
 
 for(rll in 1:nrow(rsm)){
   ## if REF and ALT are ambiguous, then the risk_type and flipped are NA 
-  if( rsm[rll, "ambiguous"] == "Y"){
+  if(rsm[rll, "ambiguous"] == "Y"){
+    risk_type[[rll]] = NA
+    flipped[[rll]] = NA
+  }
+  ## if ambigious flag is D or N - first check for ambigious then for check type and flipped
+  else{
+    if(rsm[rll,"Risk_allele"] == complement(rsm[rll,"REF.ALLELE"]) & rsm[rll,"Risk_allele"] %in% stp2[[rll]]){
+      risk_type[[rll]] = NA
+      flipped[[rll]] = NA
+      rsm[rll,"ambiguous"] = "Y"
+    }
+    # Risk == REF and  == complemnt(ALT)
+    # same as complment(risk) == complment(REF) & ALT
+    else if(complement(rsm[rll,"Risk_allele"]) == complement(rsm[rll,"REF.ALLELE"]) & complement(rsm[rll,"Risk_allele"]) %in% stp2[[rll]]){
+      risk_type[[rll]] = NA
+      flipped[[rll]] = NA
+      rsm[rll,"ambiguous"] = "Y"
+    }
+    else if(rsm[rll,"Risk_allele"] == rsm[rll,"REF.ALLELE"]){
+      risk_type[[rll]] = "REF"
+      flipped[[rll]] = "N"
+    }else if (rsm[rll,"Risk_allele"] %in% stp2[[rll]]){
+      risk_type[[rll]] = "ALT"
+      flipped[[rll]] = "N"
+      ## complement means flipped
+    }else if(complement(rsm[rll,"Risk_allele"]) == rsm[rll,"REF.ALLELE"]){
+      risk_type[[rll]] = "REF"
+      flipped[[rll]] = "Y"
+    }else if (complement(rsm[rll,"Risk_allele"]) %in% stp2[[rll]]){
+      risk_type[[rll]] = "ALT"
+      flipped[[rll]] = "Y"
+    }
+  }
+}
+
+SNP_fin <- cbind(rsm, risk_type=unlist(risk_type), flipped=unlist(flipped))
+SNP_fin[order(SNP_fin$ambiguous),]
+
+
+
+### NUll for 1 and 7 that should be N for ambigious 
+
+rsm <- merge(SNP_is, gf_ok[,1:2], by="rsID")
+stp2 <- strsplit(rsm$ALT.ALLELE, "|")
+
+risk_type <- list()
+flipped <- list()
+
+for(rll in 1:nrow(rsm)){
+  ## if REF and ALT are ambiguous, then the risk_type and flipped are NA 
+  if(rsm[rll, "ambiguous"] == "Y"){
     risk_type[[rll]] = NA
     flipped[[rll]] = NA
   }
   ## if not ambigious check type and flipped
-  else{
+  else if (rsm[rll, "ambiguous"] == "N"){
     if(rsm[rll,"Risk_allele"] == rsm[rll,"REF.ALLELE"]){
       risk_type[[rll]] = "REF"
       flipped[[rll]] = "N"
@@ -324,7 +376,22 @@ for(rll in 1:nrow(rsm)){
     }else if (complement(rsm[rll,"Risk_allele"]) %in% stp2[[rll]]){
       risk_type[[rll]] = "ALT"
       flipped[[rll]] = "Y"
-    }  
+    } 
+  ## if possibly ambiguous, first check for  
+  }else if(rsm[rll, "ambiguous"] == "M"){
+    # Risk == complent(REF) and == ALT
+    if(rsm[rll,"Risk_allele"] == complement(rsm[rll,"REF.ALLELE"]) & rsm[rll,"Risk_allele"] %in% stp2[[rll]]){
+      risk_type[[rll]] = NA
+      flipped[[rll]] = NA
+      rsm[rll,"ambiguous"] = "Y"
+    }
+    # Risk == REF and  == complemnt(ALT)
+    # same as complment(risk) == complment(REF) & ALT
+    else if(complement(rsm[rll,"Risk_allele"]) == complement(rsm[rll,"REF.ALLELE"]) & complement(rsm[rll,"Risk_allele"]) %in% stp2[[rll]]){
+      risk_type[[rll]] = NA
+      flipped[[rll]] = NA
+      rsm[rll,"ambiguous"] = "Y"
+    }
   }
 }
 
