@@ -98,6 +98,7 @@ format_dbSNP <- function(x){
   nt3 <- do.call(rbind, strsplit(nt2, ">"))
   colnames(nt3) <- c("REF", "ALT")
   df <- data.frame(NC_CHR,START, nt3)
+  ## get the right genome build info based on assembly defined in main script 
   df2 <- unique(merge(assembly,df,by="NC_CHR"))
   df3 <- df2[,-1]
   
@@ -125,8 +126,8 @@ getrsID_info <- function(rsid_input){
     colnames(final_snp) <- c("rsID", "CHR", "START", "REF.ALLELE", "ALT.ALLELE")
   }else{
     ## info associated with snp_id
-    multi_summs <- entrez_summary(db="snp", id=r_search$id)
-    uid <- unique(extract_from_esummary(multi_summs, c("snp_id","snp_class")))
+    multi_summs <- entrez_summary(db="snp", id=r_search$id, version="2.0", retmode="xml")
+    uid <- unique(extract_from_esummary(multi_summs, c("SNP_ID")))
     all_recs <- entrez_fetch(db="snp", id=uid, rettype="xml")
     tax_list <- XML::xmlToList(all_recs)
     
@@ -284,4 +285,21 @@ getLDproxy <- function(snp, pop, token, SNP_kept){
   ldpoxy_df <- as.data.frame(ldpoxy_output2, stringsAsFactors = FALSE)
   return(ldpoxy_df)
 }  
+
+#######################################################
+## Function related to SNP strand and strandflipping ##
+#######################################################
+
+complement <- function(x) {
+  switch (
+    x,
+    "A" = "T",
+    "C" = "G",
+    "T" = "A",
+    "G" = "C",
+    return(NA)
+  )
+}
+
+
 

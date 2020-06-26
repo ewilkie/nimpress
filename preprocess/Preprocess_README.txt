@@ -53,7 +53,11 @@ The underlying preprocessing script has the following functionality
 - convert OR to Beta via log transformation
 - query dbSNP to extract reference allele and genomic location. rsIDs which don't represent SNVs will be treated as unusable
 - if remove "black-listed genomic regions" flag is set or bed file is provided, but if LDpoxy parameters are not set rsIDs that fall in those regions will be removed. If LDproxy parameters are set, rsIDS without coverage will be substituted with alternative rsIDs that have an LD value > 0.9
+
 - check for strand flipping and define correct alleles if strand flipping has occured
+
+## NCBI information on strand orientation
+## ncbi.nlm.nih.gov/books/NBK44476/#Reports.how_do_i_determine_orientation_o
 
 
 Citatione for default black-listed genomic regions:

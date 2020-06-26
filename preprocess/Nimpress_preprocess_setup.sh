@@ -9,3 +9,8 @@
 # data.table
 # GenomicRanges
 # rentrez
+## move this to preprocessing
+#BiocManager::install("BSgenome.Hsapiens.UCSC.hg19")
+
+
+

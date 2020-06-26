@@ -72,6 +72,7 @@ arguments$GRCh37 = TRUE
 arguments$GRCh38 = FALSE
 #arguments$remove_blacklisted_regions = TRUE
 arguments$blacklisted_regions_file = "/Users/ewilkie/Documents/Work/CCI/CCI_general_data_files/GRCh37_alldifficultregions.tier3.sorted.merged.sorted.bed"
+arguments$remove_blacklisted_regions = FALSE
 arguments$file = "Example/Example_File_to_process.csv"
 arguments$LDproxy_pop ="GBR"
 arguments$LDproxy_token ="cbe1b45bc8be"
@@ -117,7 +118,7 @@ source("Nimpress_preprocess_functions.R")
 
 ## LDlinkR gets loaded later if used since it takes a while to install
 message("[1/..] Loading libraries...")
-pacman::p_load(data.table,GenomicRanges,rentrez)
+pacman::p_load(data.table,GenomicRanges,rentrez,BSgenome.Hsapiens.UCSC.hg19)
 ## rentrez,bedr,LDlinkR,stringr,GenomicRanges
 
 ###################
@@ -242,6 +243,94 @@ for (rsid in 1: length(rsIDu)){
 rsID_loc_df <- do.call(rbind, rsID_loc)
 #print(rsID_loc_df)
 
+##################################
+## Check REF allele with genome ##
+##################################
+
+## create range of snps
+snp_gr <- GRanges(seqnames=paste("chr", as.numeric(rsID_loc_df$CHR), sep=""), ranges=IRanges(start=as.numeric(rsID_loc_df$START)), starts.in.df.are.0based=F)
+
+## results returned are in forward strand
+seqs <- getSeq(BSgenome.Hsapiens.UCSC.hg19, snp_gr)
+seqs_df <- as.data.frame(seqs)
+colnames(seqs_df) <- "SEQ"
+
+SNP_info <- cbind(rsID_loc_df, seqs_df)
+
+## check for strand and ambigiouty between REF and ALT
+strand <- list()
+ambig <- list()
+
+stp <- strsplit(SNP_info$ALT.ALLELE, "|")
+for(rs in 1:nrow(SNP_info)){
+  ## check whether REF is forwards or reverse strand (same as SEQ)
+  if(SNP_info[rs,"REF.ALLELE"] == SNP_info[rs,"SEQ"]){
+    strand[[rs]] <- "+"
+  } else if(SNP_info[rs,"REF.ALLELE"] == complement(SNP_info[rs,"SEQ"])){
+    strand[[rs]] <- "-"
+  } else{
+    strand[[rs]] <- NA
+  }
+  
+  if(complement(SNP_info[rs,"REF.ALLELE"]) %in% stp[[rs]]){
+    ambig[[rs]] <- "Y"
+  }else{
+    ambig[[rs]] <- "N"
+  }
+}
+
+SNP_is <- cbind(SNP_info, strand=unlist(strand), ambiguous= unlist(ambig))
+
+##############################
+## Check for Ambiguous SNPS ##
+##############################
+
+## ambiguity is defined as when there are multiple plausible scenarios.
+## for example:
+#rs334  11  5248232          T      A|C|G   T      +           A
+# is A the ALT or a complement of the REF? 
+# rs4948492  10 63719739          C        G|T   C      +           C
+# is C the ref or the complement of ALT
+
+# rs13034020   2 61043834          A          G   A      +           T
+# in this scenario the Risk T is clearly the complement of REF
+
+## Check whether Risk ALlele is REF or ALT or neither (wrong)/ Flipped 
+
+rsm <- merge(SNP_is, gf_ok[,1:2], by="rsID")
+stp2 <- strsplit(rsm$ALT.ALLELE, "|")
+
+risk_type <- list()
+flipped <- list()
+
+for(rll in 1:nrow(rsm)){
+  ## if REF and ALT are ambiguous, then the risk_type and flipped are NA 
+  if( rsm[rll, "ambiguous"] == "Y"){
+    risk_type[[rll]] = NA
+    flipped[[rll]] = NA
+  }
+  ## if not ambigious check type and flipped
+  else{
+    if(rsm[rll,"Risk_allele"] == rsm[rll,"REF.ALLELE"]){
+      risk_type[[rll]] = "REF"
+      flipped[[rll]] = "N"
+    }else if (rsm[rll,"Risk_allele"] %in% stp2[[rll]]){
+      risk_type[[rll]] = "ALT"
+      flipped[[rll]] = "N"
+      ## complement means flipped
+    }else if(complement(rsm[rll,"Risk_allele"]) == rsm[rll,"REF.ALLELE"]){
+      risk_type[[rll]] = "REF"
+      flipped[[rll]] = "Y"
+    }else if (complement(rsm[rll,"Risk_allele"]) %in% stp2[[rll]]){
+      risk_type[[rll]] = "ALT"
+      flipped[[rll]] = "Y"
+    }  
+  }
+}
+
+SNP_fin <- cbind(rsm, risk_type=unlist(risk_type), flipped=unlist(flipped))
+SNP_fin[order(SNP_fin$ambiguous),]
+
 ##################
 ## Get coverage ##
 ##################
@@ -349,38 +438,51 @@ if(length(unique(urercov$bedcov)) == 1 & unique(urercov$bedcov) == FALSE){
   LDproxy_out <- rbind(nocov_padd, LDproxy_in)
 }
 
-## to do next: checking for strand flipping
-  
+##########################################################
+## Check for strand FLIPPING AND DEFINE CORRECT ALLELES ##
+##########################################################
+
+
+
+## compare Risk_allele in input with Alleles in output
+## output depends on whether LDproxy sub has been performed or not
+
+## example: 
+
+## input
+gf_ok
+
+## output
+LDproxy_out
+
+
+
+
+
+
+
 ########################## FROM OLD CODE --- DELETE once used ##############################
 
 ## in file  /Users/ewilkie/Documents/Work/CCI/Polygenic/Nimpress_preprocess/Nimpress_preprocess_pipeline_V5.1.R
 
 
-##########################################################
-## Check for strand FLIPPING AND DEFINE CORRECT ALLELES ##
-##########################################################
-
-complement <- function(x) {
-  switch (
-    x,
-    "A" = "T",
-    "C" = "G",
-    "T" = "A",
-    "G" = "C",
-    return(NA)
-  )
-}
-
-check_multi_sub <- split(test_file, f = test_file$Subtype)
+#check_multi_sub <- split(test_file, f = test_file$Subtype)
 
 subs <- list()
-for(type in 1:length(check_multi_sub)){
+#for(type in 1:length(check_multi_sub)){
   out <- list()
   oc <- 0
   ## get risk allele
-  test_f <- check_multi_sub[[type]]
+  #test_f <- check_multi_sub[[type]]
+  
+  
+  comb <- LDproxy_out  
+  var <- 1
+  
   for(var in 1:nrow(comb)){
     oc <- oc + 1
+    
+    
     ## get rsID db alelles
     ref_dat <- merge(comb[var,], rsID_genome_df, by="rsID")
     ## match between original and final 
