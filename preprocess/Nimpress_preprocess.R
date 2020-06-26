@@ -343,60 +343,8 @@ for(rll in 1:nrow(rsm)){
 }
 
 SNP_fin <- cbind(rsm, risk_type=unlist(risk_type), flipped=unlist(flipped))
-SNP_fin[order(SNP_fin$ambiguous),]
+#SNP_fin[order(SNP_fin$ambiguous),]
 
-
-
-### NUll for 1 and 7 that should be N for ambigious 
-
-rsm <- merge(SNP_is, gf_ok[,1:2], by="rsID")
-stp2 <- strsplit(rsm$ALT.ALLELE, "|")
-
-risk_type <- list()
-flipped <- list()
-
-for(rll in 1:nrow(rsm)){
-  ## if REF and ALT are ambiguous, then the risk_type and flipped are NA 
-  if(rsm[rll, "ambiguous"] == "Y"){
-    risk_type[[rll]] = NA
-    flipped[[rll]] = NA
-  }
-  ## if not ambigious check type and flipped
-  else if (rsm[rll, "ambiguous"] == "N"){
-    if(rsm[rll,"Risk_allele"] == rsm[rll,"REF.ALLELE"]){
-      risk_type[[rll]] = "REF"
-      flipped[[rll]] = "N"
-    }else if (rsm[rll,"Risk_allele"] %in% stp2[[rll]]){
-      risk_type[[rll]] = "ALT"
-      flipped[[rll]] = "N"
-      ## complement means flipped
-    }else if(complement(rsm[rll,"Risk_allele"]) == rsm[rll,"REF.ALLELE"]){
-      risk_type[[rll]] = "REF"
-      flipped[[rll]] = "Y"
-    }else if (complement(rsm[rll,"Risk_allele"]) %in% stp2[[rll]]){
-      risk_type[[rll]] = "ALT"
-      flipped[[rll]] = "Y"
-    } 
-  ## if possibly ambiguous, first check for  
-  }else if(rsm[rll, "ambiguous"] == "M"){
-    # Risk == complent(REF) and == ALT
-    if(rsm[rll,"Risk_allele"] == complement(rsm[rll,"REF.ALLELE"]) & rsm[rll,"Risk_allele"] %in% stp2[[rll]]){
-      risk_type[[rll]] = NA
-      flipped[[rll]] = NA
-      rsm[rll,"ambiguous"] = "Y"
-    }
-    # Risk == REF and  == complemnt(ALT)
-    # same as complment(risk) == complment(REF) & ALT
-    else if(complement(rsm[rll,"Risk_allele"]) == complement(rsm[rll,"REF.ALLELE"]) & complement(rsm[rll,"Risk_allele"]) %in% stp2[[rll]]){
-      risk_type[[rll]] = NA
-      flipped[[rll]] = NA
-      rsm[rll,"ambiguous"] = "Y"
-    }
-  }
-}
-
-SNP_fin <- cbind(rsm, risk_type=unlist(risk_type), flipped=unlist(flipped))
-SNP_fin[order(SNP_fin$ambiguous),]
 
 ##################
 ## Get coverage ##
@@ -408,19 +356,21 @@ SNP_fin[order(SNP_fin$ambiguous),]
 #ela <- Sys.time()
 if(bedfile == "NULL"){
   bedcov <- FALSE
-  urercov <- cbind(rsID_loc_df, bedcov)
+  urercov <- cbind(SNP_fin, bedcov)
 }else{
   bedcov <- vector()
-  for (s in 1:nrow(rsID_loc_df)){
-    nc <- get_cov(rsID_loc_df[s,])
+  for (s in 1:nrow(SNP_fin)){
+    nc <- get_cov(SNP_fin[s,])
     bedcov <- c(bedcov, nc)
   }
-  urercov <- cbind(rsID_loc_df, bedcov)
+  urercov <- cbind(SNP_fin, bedcov)
 }
 
 #ela <- Sys.time() - ela
 #print(ela)
 
+
+#urercov[order(urercov$ambiguous,urercov$bedcov),]
 ########!!!!!!!! since cov file type has changed FALSE now means that no removal - check this correct 
 ## updated input file contains some FALSE and SOME TRUE 
 #urercov[, "bedcov"] <- TRUE
@@ -432,8 +382,6 @@ if(bedfile == "NULL"){
 ## what to do about: error: rs965506592 is not in 1000G reference panel.,
 
 ## ldproxy takes 8.791638 mins for 10 SNPS, so a bit under a minute for 1
-
-
 
 
 ## if no bedfile all bedcov will equal FALSE, if no fall in region no sub needed
@@ -461,10 +409,11 @@ if(length(unique(urercov$bedcov)) == 1 & unique(urercov$bedcov) == FALSE){
   
   ela <- Sys.time()
   
-  ## only run LDproxy on unique results for those that don't have coverage
-  ldproxy_input <- unique(urercov[which(urercov$bedcov == TRUE),"rsID"])
+  ## only run LDproxy on unique results for those that don't have coverage or are ambigious
+  run_ind <- which(urercov$bedcov == TRUE & urercov$ambiguous != "Y")
+  ldproxy_input <- unique(urercov[run_ind,"rsID"])
   ## to keep track of which RSids are already in DF, without expanding loop 
-  SNP_kept <- unique(urercov[which(urercov$bedcov == FALSE),"rsID"])
+  SNP_kept <- unique(urercov[-run_ind,"rsID"])
   
   ldproxy_ls <- list()
   for(s in 1:length(ldproxy_input)){
@@ -499,163 +448,19 @@ if(length(unique(urercov$bedcov)) == 1 & unique(urercov$bedcov) == FALSE){
   
   ## format results that don't have bedcov
   nocov_padd <- cbind(urercov[urercov$bedcov == FALSE,],NA,NA,NA,NA,NA)
-  colnames(nocov_padd) <- c("rsID","CHR.x","START.x","REF.ALLELE.x","ALT.ALLELE.x","bedcov","RSID_Proxy", "CHR.y", "START.y", "REF.ALLELE.y", "ALT.ALLELE.y")
+  colnames(nocov_padd) <- c("rsID", "CHR.x", "START.x", "REF.ALLELE.x", "ALT.ALLELE.x", "SEQ", "strand", "ambiguous", "Risk_allele", "risk_type", "flipped", "bedcov", "RSID_Proxy", "CHR.y", "START.y", "REF.ALLELE.y", "ALT.ALLELE.y")
   
   ## final output
   LDproxy_out <- rbind(nocov_padd, LDproxy_in)
 }
 
-##########################################################
-## Check for strand FLIPPING AND DEFINE CORRECT ALLELES ##
-##########################################################
+## to get colnames 
+#pz <- paste0('"', paste(colnames(LDproxy_in), collapse='", "'), '"')
+#print(pz, quote=F)
 
 
+############################
+## DEFINE CORRECT ALLELES ##
+############################
 
-## compare Risk_allele in input with Alleles in output
-## output depends on whether LDproxy sub has been performed or not
-
-## example: 
-
-## input
-gf_ok
-
-## output
-LDproxy_out
-
-
-
-
-
-
-
-########################## FROM OLD CODE --- DELETE once used ##############################
-
-## in file  /Users/ewilkie/Documents/Work/CCI/Polygenic/Nimpress_preprocess/Nimpress_preprocess_pipeline_V5.1.R
-
-
-#check_multi_sub <- split(test_file, f = test_file$Subtype)
-
-subs <- list()
-#for(type in 1:length(check_multi_sub)){
-  out <- list()
-  oc <- 0
-  ## get risk allele
-  #test_f <- check_multi_sub[[type]]
-  
-  
-  comb <- LDproxy_out  
-  var <- 1
-  
-  for(var in 1:nrow(comb)){
-    oc <- oc + 1
-    
-    
-    ## get rsID db alelles
-    ref_dat <- merge(comb[var,], rsID_genome_df, by="rsID")
-    ## match between original and final 
-    relv <- test_f[which(as.vector(test_f$rsID) == as.vector(comb[var,"rsID"])),]
-    ## if this rsID is not in this subtyope - skip
-    if(nrow(relv) == 0){
-      out[[oc]] <- NA
-    }else{
-      # if the SNP has coverage, LDproxy sub not needed
-      if(unique(ref_dat$cov == TRUE)){
-        ## determine which allele the risk alelle correpsonds to: ALT, REF or complement 
-        ## need to incorporate multiple ALT.Alleles
-        taa <- which(relv[,"Risk_allele"] %in% as.vector(ref_dat$ALT.ALLELE))
-        tar <- which(relv[,"Risk_allele"] %in% as.vector(ref_dat$REF.ALLELE))
-        
-        ## alt_com
-        taac <- which(relv[,"Risk_allele"] %in% sapply(as.vector(ref_dat$ALT.ALLELE), complement))
-        tarc <- which(relv[,"Risk_allele"] %in% sapply(as.vector(ref_dat$REF.ALLELE), complement))
-        
-        ## if risk allele is ALT
-        if(length(taa) == 1){
-          o <- c(as.matrix(ref_dat[taa,c(1:3,12:13,13)]), as.matrix(relv[,3:ncol(relv)]))
-          out[[oc]] <- o
-          ## if risk allele is REF  
-        }else if(length(tar) == 1){
-          o <- c(as.matrix(ref_dat[tar,c(1:3,12:13,12)]), as.matrix(relv[,3:ncol(relv)]))
-          out[[oc]] <- o
-          ## if risk allele is complement of ALT  - strand flipping
-        }else if(length(taac) == 1){
-          ## change direction of odds ratio
-          new.Effect.size <- as.numeric(as.vector(relv[,"Effect.size"])) * -1
-          o <- c(as.matrix(ref_dat[taac,c(1:3,12:13,13)]), as.matrix(relv[,3]), new.Effect.size, as.matrix(relv[,c(5:ncol(relv))]))
-          out[[oc]] <- o
-          ## if not AT.ALLELE or REF.ALLELE -> strand filling has occured  
-          ## check for complement of REF.ALLELE    
-        }else if (length(tarc) == 1){
-          ## change direction of odds ratio
-          new.Effect.size <- as.numeric(as.vector(relv[,"Effect.size"])) * -1
-          o <- c(as.matrix(ref_dat[tarc,c(1:3,12:13,12)]), as.matrix(relv[,3]), new.Effect.size, as.matrix(relv[,c(5:ncol(relv))]))
-          out[[oc]] <- o
-        }
-        ## if multiple alt alleles change to include
-        if(nrow(ref_dat) >1){
-          alt <- paste(sort(as.vector(ref_dat$ALT.ALLELE)), collapse=",")
-          out[[oc]][5] <- alt 
-        }
-        ## if the SNP doesn't have coverage, Need to do LDpoxy SUB
-      }else if(unique(ref_dat$cov == FALSE)){
-        ## ignore results which don't have an alternative
-        if(!is.na(unique(as.vector(ref_dat$ALT.rsID)))){
-          
-          waa <- which(as.vector(relv[,"Risk_allele"]) %in% as.vector(ref_dat$ALT.ALLELE))
-          war <- which(as.vector(relv[,"Risk_allele"]) %in% as.vector(ref_dat$REF.ALLELE))
-          
-          ## alt_com
-          waac <- which(as.vector(relv[,"Risk_allele"]) %in% sapply(as.vector(ref_dat$ALT.ALLELE), complement))
-          warc <- which(as.vector(relv[,"Risk_allele"]) %in% sapply(as.vector(ref_dat$REF.ALLELE), complement))
-          
-          ## if ALT.ALLELE
-          if(length(waa) == 1){
-            ## change to ALT.new 
-            o <- c(as.matrix(ref_dat[waa,c(5:9,9)]), as.matrix(relv[,3:ncol(relv)]))
-            out[[oc]] <- o
-            ## if not ALT. ALLELE, then check for REF.Allele 
-          }else if(length(war) == 1){
-            ## change to REF.new 
-            o <- c(as.matrix(ref_dat[war,c(5:9,8)]), as.matrix(relv[,3:ncol(relv)]))
-            out[[oc]] <- o
-            ## if not AT. ALLELE or REF.ALLELe -> strand filling has occured  
-            ## check for complement of ALT.ALLELE  
-          }else if (length(waac) == 1){
-            ## change direction of odds ratio
-            new.Effect.size <- as.numeric(as.vector(relv[,"Effect.size"])) * -1
-            o <- c(as.matrix(ref_dat[waac,c(5:9,9)]), as.matrix(relv[,3]), new.Effect.size, as.matrix(relv[,c(5:ncol(relv))]))
-            out[[oc]] <- o
-            ## if not AT.ALLELE or REF.ALLELE -> strand flipping has occured  
-            ## check for complement of REF.ALLELE    
-          }else if (length(warc) == 1){
-            ## change direction of odds ratio
-            new.Effect.size <- as.numeric(as.vector(relv[,"Effect.size"])) * -1
-            o <- c(as.matrix(ref_dat[warc,c(5:9,8)]), as.matrix(relv[,3]), new.Effect.size, as.matrix(relv[,c(5:ncol(relv))]))
-            out[[oc]] <- o
-          }
-          ## ignore results which don't have an alternative
-        }else{
-          out[[oc]] <- NA
-        }
-      }## if multiple alt alleles change to include both as comma seperated
-      if(nrow(ref_dat) > 1){
-        alt <- paste(sort(as.vector(ref_dat$ALT.ALLELE)), collapse=",")
-        out[[oc]][5] <- alt 
-      }
-    }
-  }
-  subs[[type]] <- do.call(rbind,out)
-}
-
-otdf <- do.call(rbind,subs)
-
-na.ind <- which(is.na(otdf[,1]))
-if (length(na.ind) == 0){
-  colnames(otdf) <- c("rsID","CHR","START","REF.ALLELE","ALT.ALLELE","Risk_allele","Freq","Effect.size","P","Subtype")
-  final <- as.data.frame(otdf,stringsAsFactors=FALSE)
-}else{
-  otdf <- otdf[-na.ind,]
-  colnames(otdf) <- c("rsID","CHR","START","REF.ALLELE","ALT.ALLELE","Risk_allele","Freq","Effect.size","P","Subtype")
-  final <- as.data.frame(otdf,stringsAsFactors=FALSE)
-}
 

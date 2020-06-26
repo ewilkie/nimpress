@@ -145,6 +145,22 @@ getrsID_info <- function(rsid_input){
   return(final_snp)
 }
 
+#######################################################
+## Function related to SNP strand and strandflipping ##
+#######################################################
+
+complement <- function(x) {
+  switch (
+    x,
+    "A" = "T",
+    "C" = "G",
+    "T" = "A",
+    "G" = "C",
+    return(NA)
+  )
+}
+
+
 ###################################################
 ## Get coverage with blacklisted bad file region ##
 ###################################################
@@ -286,20 +302,6 @@ getLDproxy <- function(snp, pop, token, SNP_kept){
   return(ldpoxy_df)
 }  
 
-#######################################################
-## Function related to SNP strand and strandflipping ##
-#######################################################
-
-complement <- function(x) {
-  switch (
-    x,
-    "A" = "T",
-    "C" = "G",
-    "T" = "A",
-    "G" = "C",
-    return(NA)
-  )
-}
 
 
 
