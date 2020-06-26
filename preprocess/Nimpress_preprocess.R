@@ -415,43 +415,51 @@ if(length(unique(urercov$bedcov)) == 1 & unique(urercov$bedcov) == FALSE){
   ## to keep track of which RSids are already in DF, without expanding loop 
   SNP_kept <- unique(urercov[-run_ind,"rsID"])
   
-  ldproxy_ls <- list()
-  for(s in 1:length(ldproxy_input)){
-    ## need to implement collapse of duplicate alt alleles - 
-    ldproxy_res <- getLDproxy(ldproxy_input[s], arguments$LDproxy_pop, arguments$LDproxy_token, SNP_kept)
-    
-    ## if results is NA add it anyways for later removal 
-    if(is.na(ldproxy_res$RSID_Proxy)[1]){
-      ldproxy_res_keep <- ldproxy_res
-    }else{
-      ## check which not in dataset 
-      wni <- which(ldproxy_res$RSID_Proxy %!in% SNP_kept)
-      if(length(wni) == 0){
-        ldproxy_res_keep <- LDproxy_NA_res(ldproxy_input[s])
+  if(length(ldproxy_input) > 0){
+    ldproxy_ls <- list()
+    for(s in 1:length(ldproxy_input)){
+      ## need to implement collapse of duplicate alt alleles - 
+      ldproxy_res <- getLDproxy(ldproxy_input[s], arguments$LDproxy_pop, arguments$LDproxy_token, SNP_kept)
+      ## if results is NA add it anyways for later removal 
+      if(is.na(ldproxy_res$RSID_Proxy)[1]){
+        ldproxy_res_keep <- ldproxy_res
       }else{
-        ## keep one result only that is not already in dataset
-        ldproxy_res_keep <- ldproxy_res[wni[1],]
-        ## this is so that no duplicates appear in the data
-        SNP_kept <- c(SNP_kept,ldproxy_res_keep$RSID_Proxy)
+        ## check which not in dataset 
+        wni <- which(ldproxy_res$RSID_Proxy %!in% SNP_kept)
+        if(length(wni) == 0){
+          ldproxy_res_keep <- LDproxy_NA_res(ldproxy_input[s])
+        }else{
+          ## keep one result only that is not already in dataset
+          ldproxy_res_keep <- ldproxy_res[wni[1],]
+          ## this is so that no duplicates appear in the data
+          SNP_kept <- c(SNP_kept,ldproxy_res_keep$RSID_Proxy)
+        }
       }
+      
+      ## combine ldproxy_res with orignal input - use all to get also those that return NA for proxy to later filter
+      mres <- merge(urercov, ldproxy_res_keep, by.x="rsID", by.y="RSID_input", all=T)
+      ldproxy_ls[[s]] <- mres
     }
     
-    ## combine ldproxy_res with orignal input - automatically only uses bedcov == TRUE data
-    mres <- merge(urercov, ldproxy_res_keep, by.x="rsID", by.y="RSID_input")
-    ldproxy_ls[[s]] <- mres
+    ela <- Sys.time() - ela
+    print(ela)
+    
+    LDproxy_df <- do.call(rbind, ldproxy_ls)
+    LDproxy_in <- LDproxy_df[!is.na(LDproxy_df$RSID_Proxy),]
+    
+    ## format results that don't have bedcov
+    nocov_padd <- cbind(urercov[-run_ind,],NA,NA,NA,NA,NA)
+    colnames(nocov_padd) <- c("rsID", "CHR.x", "START.x", "REF.ALLELE.x", "ALT.ALLELE.x", "SEQ", "strand", "ambiguous", "Risk_allele", "risk_type", "flipped", "bedcov", "RSID_Proxy", "CHR.y", "START.y", "REF.ALLELE.y", "ALT.ALLELE.y")
+    
+    ## final output
+    LDproxy_out <- rbind(nocov_padd, LDproxy_in)
+  }else{
+    nocov_padd <- cbind(urercov,NA,NA,NA,NA,NA)
+    colnames(nocov_padd) <- c("rsID", "CHR.x", "START.x", "REF.ALLELE.x", "ALT.ALLELE.x", "SEQ", "strand", "ambiguous", "Risk_allele", "risk_type", "flipped", "bedcov", "RSID_Proxy", "CHR.y", "START.y", "REF.ALLELE.y", "ALT.ALLELE.y")
+    
+    ## final output
+    LDproxy_out <- nocov_padd
   }
-  
-  #ela <- Sys.time() - ela
-  
-  LDproxy_df <- do.call(rbind, ldproxy_ls)
-  LDproxy_in <- LDproxy_df[!is.na(LDproxy_df$RSID_Proxy),]
-  
-  ## format results that don't have bedcov
-  nocov_padd <- cbind(urercov[urercov$bedcov == FALSE,],NA,NA,NA,NA,NA)
-  colnames(nocov_padd) <- c("rsID", "CHR.x", "START.x", "REF.ALLELE.x", "ALT.ALLELE.x", "SEQ", "strand", "ambiguous", "Risk_allele", "risk_type", "flipped", "bedcov", "RSID_Proxy", "CHR.y", "START.y", "REF.ALLELE.y", "ALT.ALLELE.y")
-  
-  ## final output
-  LDproxy_out <- rbind(nocov_padd, LDproxy_in)
 }
 
 ## to get colnames 
@@ -459,8 +467,20 @@ if(length(unique(urercov$bedcov)) == 1 & unique(urercov$bedcov) == FALSE){
 #print(pz, quote=F)
 
 
+LDproxy_out[order(LDproxy_out$ambiguous),]
+urercov[order(urercov$ambiguous),]
+
+#####################
+## Set filter flag ##
+#####################
+
+rm_flag <- rep("N", nrow(LDproxy_out))
+rm_ind <- which(LDproxy_out$ambiguous == "Y" | (LDproxy_out$bedcov == TRUE & is.na(LDproxy_out$RSID_Proxy)))
+rm_flag[rm_ind] <- "Y"
+
+LDproxy_outf <- cbind(LDproxy_out, rm_flag)
+
 ############################
 ## DEFINE CORRECT ALLELES ##
 ############################
-
 
