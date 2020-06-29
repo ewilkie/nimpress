@@ -7,6 +7,7 @@
 ## verbose turn off and on
 ## some statisitcs
 ## create catch that preprocessing script has been run - if not stop and request preprocessing script to be run
+## remove p-value, not needed for nimpress input !! 
 
 ##########################################
 ## GWAS summary data curations pipeline ##
@@ -103,6 +104,8 @@ arguments$LDproxy_token ="cbe1b45bc8be"
 
 ## might need to rearrange order of operation so that it errors are caught at the start and not after massive proprocessing 
 ## such as LDproxy flag = On but Bedfile=NULL
+
+## multiple alt alleles returned from ldproxy
 
 ###################
 ###################
@@ -288,18 +291,7 @@ SNP_is <- cbind(SNP_info, strand=unlist(strand), ambiguous= unlist(ambig))
 ## Check for Ambiguous SNPS ##
 ##############################
 
-## ambiguity is defined as when there are multiple plausible scenarios.
-## for example:
-#rs334  11  5248232          T      A|C|G   T      +           A
-# is A the ALT or a complement of the REF? 
-# rs4948492  10 63719739          C        G|T   C      +           C
-# is C the ref or the complement of ALT
-
-# rs13034020   2 61043834          A          G   A      +           T
-# in this scenario the Risk T is clearly the complement of REF
-
 ## Check whether Risk ALlele is REF or ALT or neither (wrong)/ Flipped 
-
 rsm <- merge(SNP_is, gf_ok[,c("rsID","Risk_allele")], by="rsID")
 stp2 <- strsplit(rsm$ALT.ALLELE, "|")
 
@@ -329,16 +321,20 @@ for(rll in 1:nrow(rsm)){
     else if(rsm[rll,"Risk_allele"] == rsm[rll,"REF.ALLELE"]){
       risk_type[[rll]] = "REF"
       flipped[[rll]] = "N"
+      rsm[rll,"ambiguous"] = "N"
     }else if (rsm[rll,"Risk_allele"] %in% stp2[[rll]]){
       risk_type[[rll]] = "ALT"
       flipped[[rll]] = "N"
+      rsm[rll,"ambiguous"] = "N"
       ## complement means flipped
     }else if(complement(rsm[rll,"Risk_allele"]) == rsm[rll,"REF.ALLELE"]){
       risk_type[[rll]] = "REF"
       flipped[[rll]] = "Y"
+      rsm[rll,"ambiguous"] = "N"
     }else if (complement(rsm[rll,"Risk_allele"]) %in% stp2[[rll]]){
       risk_type[[rll]] = "ALT"
       flipped[[rll]] = "Y"
+      rsm[rll,"ambiguous"] = "N"
     }
   }
 }
@@ -468,8 +464,8 @@ if(length(unique(urercov$bedcov)) == 1 & unique(urercov$bedcov) == FALSE){
 #print(pz, quote=F)
 
 
-LDproxy_out[order(LDproxy_out$ambiguous),]
-urercov[order(urercov$ambiguous),]
+#LDproxy_out[order(LDproxy_out$ambiguous),]
+#urercov[order(urercov$ambiguous),]
 
 #####################
 ## Set filter flag ##
@@ -486,40 +482,58 @@ rm_flag[(LDproxy_outl$ambiguous == "Y" | LDproxy_outl$ldproxy_flag == "N")] <- "
 rm_flag[(LDproxy_outl$ambiguous != "Y" | LDproxy_outl$ldproxy_flag != "N")] <- "N"
 LDproxy_outlf <- cbind(LDproxy_outl, rm_flag)
 
-LDproxy_rm <-  LDproxy_outlf[LDproxy_outlf$rm_flag == "Y",]
-LDproxy_keep <-  LDproxy_outlf[LDproxy_outlf$rm_flag == "N",]
+## merge with previous results
+LDproxyf <- merge(LDproxy_outlf, gf_ok[,c("rsID","Freq","Effect.size","P")], by="rsID")
 
-####################################################
-## Removed risk loci - Format and write to output ##
-####################################################
+## change column names
+## write this to outfile - as intermediate file
+colnames(LDproxyf) <- c("INPUT.rsID", "dbSNP.CHR", "dbSNP.START", "dbSNP.REF.ALLELE", "dbSNP.ALT.ALLELE", paste(gv,".ALLELE", sep=""), "STRAND", "FLAG.AMBIGUOUS", "INPUT.RISK.ALLELE", "INPUT.RISK.TYPE", "FLAG.RISK.FLIPPED", "BED.COVERAGE", "LDPROXY.rsID", "LDPROXY.CHR", "LDPROXY.START", "LDPROXY.REF.ALLELE","LDPROXY.ALT.ALLELE", "FLAG.LDPROXY", "FLAG.RM", "INPUT.ALLELE.FREQ", "INPUT.BETA","INPUT.Pvalue")
 
-## those that are removed should either have ambiguous = Y or ldproxy = N or NA
+## order columns
+interm <- LDproxyf[,c("INPUT.rsID","dbSNP.CHR","dbSNP.START","dbSNP.REF.ALLELE","dbSNP.ALT.ALLELE","GRCh37.ALLELE","STRAND","INPUT.RISK.ALLELE","FLAG.RM","FLAG.AMBIGUOUS", "BED.COVERAGE", "INPUT.RISK.TYPE","FLAG.RISK.FLIPPED","FLAG.LDPROXY","LDPROXY.rsID","LDPROXY.CHR", "LDPROXY.START","LDPROXY.REF.ALLELE","LDPROXY.ALT.ALLELE","INPUT.ALLELE.FREQ","INPUT.BETA","INPUT.Pvalue")]
 
-## merge with input, only use relevant columns
-LDproxy_rmm <- merge(LDproxy_rm, gf_ok[,c("rsID","Freq","Effect.size","P")], by="rsID")
-LDproxy_rmmp <- LDproxy_rmm[,c(1:5,7:9,12,18, 20:22)]
-colnames(LDproxy_rmmp) <- gsub("\\.x", "", colnames(LDproxy_rmmp))
+## order rows
+intermo <- interm[order(interm$FLAG.RM, interm$FLAG.AMBIGUOUS, interm$BED.COVERAGE, interm$FLAG.LDPROXY, interm$INPUT.RISK.TYPE, interm$FLAG.RISK.FLIPPED),]
+
 
 ## create output folder in setup file
 ## get file name from input file
 output_name1 <- gsub(".*/","", master_file.list[[f]]$GWAS_summary_statistic_file_and_path)
 output_name2 <- gsub("\\.csv","", output_name1)
-rm_output_file <- paste("Results/", output_name2, "_removed_risk_loci.csv", sep="")
-write.table(LDproxy_rmmp,rm_output_file, sep=",", row.names=F, quote=F)
-
+rm_output_file <- paste("Results/", output_name2, "_Intermediate_results.csv", sep="")
+write.table(intermo,rm_output_file, sep=",", row.names=F, quote=F)
 
 #############################################
 ## Kept risk loci - DEFINE CORRECT ALLELES ##
 #############################################
 
-## change allele for these
-change_ale <- LDproxy_keep[(LDproxy_keep$ldproxy_flag == "Y" & !is.na(LDproxy_keep$ldproxy_flag)),]
+## seperte kept from removed
+#LDproxy_rm <-  LDproxyf[LDproxyf$FLAG.RM == "Y",]
+interm_keep <-  interm[interm$FLAG.RM == "N",]
 
+## change allele for these
+change_ale <- interm_keep[(interm_keep$FLAG.LDPROXY == "Y" & !is.na(interm_keep$FLAG.LDPROXY)),]
+
+## need to keep this 
+## remove these flags: "FLAG.LDPROXY","FLAG.RISK.FLIPPED"
+
+keep_op <- list()
 for(alle in 1:nrow(change_ale){
- if(change_ale[alle,"flipped"] == "N"){
+  ## Not flipped keep info
+ if(change_ale[alle,"FLAG.RISK.FLIPPED"] == "N"){
    
- } if(change_ale[alle,"flipped"] == "Y"){
+   keep_op[alle] <- change_ale[alle,c("LDPROXY.CHR", "LDPROXY.START", "dbSNP.REF.ALLELE", "INPUT.RISK.ALLELE", "INPUT.BETA", "INPUT.ALLELE.FREQ", "FLAG.LDPROXY","FLAG.RISK.FLIPPED")]
+ }else if(change_ale[alle,"flipped"] == "Y"){
    
+   #unchanged: c("CHR.y", "START.y", 
+   #            "Effect.size", "Freq"
+   #depending on risk_type
+   if(change_ale[alle,"risk_type"] == "REF"){
+     
+   }else if(change_ale[alle,"risk_type"] == "ALT"){
+     
+   }
+                
  }
    
 }
@@ -564,22 +578,7 @@ for(type in 1:length(out)){
   x$Freq <- "NaN"
   
   write.table(x, file=filen, sep="\t", row.names = FALSE, col.names = FALSE, quote = FALSE, append=TRUE)
-  
-  ###############################
-  ## Scores for use with PLINK ##
-  ###############################
-  
-  p <- gsub("\\s+", "_", unique(out[[type]]$Subtype))
-  
-  ## for locationID
-  filep <- paste(arguments$outpath,"/Output/PLINK/", arguments$out_prefix, "_", p, "_PLINK_input.txt", sep="")
-  
-  out[[type]][which(out[[type]][,"REF.ALLELE"] == "-"),"REF.ALLELE"] <- "*"
-  out[[type]][which(out[[type]][,"Risk_allele"] == "-"),"Risk_allele"] <- "*"
-  
-  z.rsID <- out[[type]][,c("rsID", "Risk_allele", "Effect.size", "P" )]
-  write.table(z.rsID, file=filep, sep="\t", row.names = FALSE, col.names = FALSE, quote = FALSE)
-  
+ 
 }
 
 ela <- Sys.time() - ela
