@@ -511,18 +511,33 @@ write.table(intermo,rm_output_file, sep=",", row.names=F, quote=F)
 #LDproxy_rm <-  LDproxyf[LDproxyf$FLAG.RM == "Y",]
 interm_keep <-  interm[interm$FLAG.RM == "N",]
 
-## change allele for these
-change_ale <- interm_keep[(interm_keep$FLAG.LDPROXY == "Y" & !is.na(interm_keep$FLAG.LDPROXY)),]
+## remove these flags for final output: "FLAG.LDPROXY","FLAG.RISK.FLIPPED" and new.INPUT.RISK
 
-## need to keep this 
-## remove these flags: "FLAG.LDPROXY","FLAG.RISK.FLIPPED"
+## dbSNP change
+dbSNP_ale <- interm_keep[is.na(interm_keep$FLAG.LDPROXY),]
+dnSNP_final.ls <- list()
+for(dbal in 1:nrow(dbSNP_ale)){
+  if(dbSNP_ale[dbal,"FLAG.RISK.FLIPPED"] == "N"){
+    INPUT.RISK.ALLELE <- dbSNP_ale[dbal,"INPUT.RISK.ALLELE"]
+    dnSNP_final.ls[[dbal]] <- data.frame(dbSNP_ale[dbal,c("dbSNP.CHR", "dbSNP.START", "dbSNP.REF.ALLELE")], new.INPUT.RISK.ALLELE = INPUT.RISK.ALLELE, dbSNP_ale[dbal,c("INPUT.RISK.ALLELE", "FLAG.RISK.FLIPPED","INPUT.BETA", "INPUT.ALLELE.FREQ","FLAG.LDPROXY")])
+  }else if(dbSNP_ale[dbal,"FLAG.RISK.FLIPPED"] == "Y"){
+    ## flip risk allele
+    INPUT.RISK.ALLELE <- complement(dbSNP_ale[dbal,"INPUT.RISK.ALLELE"])
+    dnSNP_final.ls[[dbal]] <- data.frame(dbSNP_ale[dbal,c("dbSNP.CHR", "dbSNP.START", "dbSNP.REF.ALLELE")], new.INPUT.RISK.ALLELE = INPUT.RISK.ALLELE, dbSNP_ale[dbal,c("INPUT.RISK.ALLELE","FLAG.RISK.FLIPPED", "INPUT.BETA", "INPUT.ALLELE.FREQ","FLAG.LDPROXY")])
+  }
+}
+
+dnSNP_final.df <- do.call(rbind,dnSNP_final.ls)
+
+
+## LDproxy change 
+ldproxy_ale <- interm_keep[(interm_keep$FLAG.LDPROXY == "Y" & !is.na(interm_keep$FLAG.LDPROXY)),]
 
 keep_op <- list()
 for(alle in 1:nrow(change_ale){
-  ## Not flipped keep info
+  ## if not flipped REF or ALT doesn't matter
  if(change_ale[alle,"FLAG.RISK.FLIPPED"] == "N"){
-   
-   keep_op[alle] <- change_ale[alle,c("LDPROXY.CHR", "LDPROXY.START", "dbSNP.REF.ALLELE", "INPUT.RISK.ALLELE", "INPUT.BETA", "INPUT.ALLELE.FREQ", "FLAG.LDPROXY","FLAG.RISK.FLIPPED")]
+     keep_op[alle] <- change_ale[alle,c("LDPROXY.CHR", "LDPROXY.START", "LDPROXY.REF.ALLELE", "INPUT.RISK.ALLELE", "INPUT.BETA", "INPUT.ALLELE.FREQ", "FLAG.LDPROXY","FLAG.RISK.FLIPPED")]
  }else if(change_ale[alle,"flipped"] == "Y"){
    
    #unchanged: c("CHR.y", "START.y", 
@@ -537,9 +552,6 @@ for(alle in 1:nrow(change_ale){
  }
    
 }
-
-## keep alleles for these
-keep_ale <- LDproxy_keep[(LDproxy_keep$ldproxy_flag != "Y" & is.na(LDproxy_keep$ldproxy_flag)),]
 
 
 
