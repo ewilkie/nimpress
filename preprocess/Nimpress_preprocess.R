@@ -6,6 +6,7 @@
 ## does Freq need to be < 1?? 
 ## verbose turn off and on
 ## some statisitcs
+## create catch that preprocessing script has been run - if not stop and request preprocessing script to be run
 
 ##########################################
 ## GWAS summary data curations pipeline ##
@@ -299,7 +300,7 @@ SNP_is <- cbind(SNP_info, strand=unlist(strand), ambiguous= unlist(ambig))
 
 ## Check whether Risk ALlele is REF or ALT or neither (wrong)/ Flipped 
 
-rsm <- merge(SNP_is, gf_ok[,1:2], by="rsID")
+rsm <- merge(SNP_is, gf_ok[,c("rsID","Risk_allele")], by="rsID")
 stp2 <- strsplit(rsm$ALT.ALLELE, "|")
 
 risk_type <- list()
@@ -474,13 +475,69 @@ urercov[order(urercov$ambiguous),]
 ## Set filter flag ##
 #####################
 
-rm_flag <- rep("N", nrow(LDproxy_out))
-rm_ind <- which(LDproxy_out$ambiguous == "Y" | (LDproxy_out$bedcov == TRUE & is.na(LDproxy_out$RSID_Proxy)))
-rm_flag[rm_ind] <- "Y"
+## ldproxy flag. NA if bedcov = FALSE, Y if becov = TRUE & !is.na(RSID_Proxy), N if becov = TRUE & is.na(RSID_Proxy)
+ldproxy_flag <- rep(NA, nrow(LDproxy_out))
+ldproxy_flag[(LDproxy_out$bedcov == TRUE & !is.na(LDproxy_out$RSID_Proxy))] <- "Y"
+ldproxy_flag[(LDproxy_out$bedcov == TRUE & is.na(LDproxy_out$RSID_Proxy))] <- "N"
+LDproxy_outl <- cbind(LDproxy_out, ldproxy_flag)
 
-LDproxy_outf <- cbind(LDproxy_out, rm_flag)
+rm_flag <- rep(NA, nrow(LDproxy_outl))
+rm_flag[(LDproxy_outl$ambiguous == "Y" | LDproxy_outl$ldproxy_flag == "N")] <- "Y"
+rm_flag[(LDproxy_outl$ambiguous != "Y" | LDproxy_outl$ldproxy_flag != "N")] <- "N"
+LDproxy_outlf <- cbind(LDproxy_outl, rm_flag)
 
-############################
-## DEFINE CORRECT ALLELES ##
-############################
+LDproxy_rm <-  LDproxy_outlf[LDproxy_outlf$rm_flag == "Y",]
+LDproxy_keep <-  LDproxy_outlf[LDproxy_outlf$rm_flag == "N",]
+
+####################################################
+## Removed risk loci - Format and write to output ##
+####################################################
+
+## those that are removed should either have ambiguous = Y or ldproxy = N or NA
+
+## merge with input, only use relevant columns
+LDproxy_rmm <- merge(LDproxy_rm, gf_ok[,c("rsID","Freq","Effect.size","P")], by="rsID")
+LDproxy_rmmp <- LDproxy_rmm[,c(1:5,7:9,12,18, 20:22)]
+colnames(LDproxy_rmmp) <- gsub("\\.x", "", colnames(LDproxy_rmmp))
+
+## create output folder in setup file
+## get file name from input file
+output_name1 <- gsub(".*/","", master_file.list[[f]]$GWAS_summary_statistic_file_and_path)
+output_name2 <- gsub("\\.csv","", output_name1)
+rm_output_file <- paste("Results/", output_name2, "_removed_risk_loci.csv", sep="")
+write.table(LDproxy_rmmp,rm_output_file, sep=",", row.names=F, quote=F)
+
+
+#############################################
+## Kept risk loci - DEFINE CORRECT ALLELES ##
+#############################################
+
+## change allele for these
+change_ale <- LDproxy_keep[(LDproxy_keep$ldproxy_flag == "Y" & !is.na(LDproxy_keep$ldproxy_flag)),]
+
+for(alle in 1:nrow(change_ale){
+ if(change_ale[alle,"flipped"] == "N"){
+   
+ } if(change_ale[alle,"flipped"] == "Y"){
+   
+ }
+   
+}
+
+## keep alleles for these
+keep_ale <- LDproxy_keep[(LDproxy_keep$ldproxy_flag != "Y" & is.na(LDproxy_keep$ldproxy_flag)),]
+
+
+
+
+
+#####################
+## Write to output ##
+#####################
+
+## those that will be dropped are 
+## ambiguous == Y
+## bedcov == TRUE & is.na(RSID_Proxy)
+
+
 

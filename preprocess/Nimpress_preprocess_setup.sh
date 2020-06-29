@@ -12,5 +12,8 @@
 ## move this to preprocessing
 #BiocManager::install("BSgenome.Hsapiens.UCSC.hg19")
 
+## create output folder
+
+
 
 
