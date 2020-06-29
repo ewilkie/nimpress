@@ -531,13 +531,59 @@ keep_ale <- LDproxy_keep[(LDproxy_keep$ldproxy_flag != "Y" & is.na(LDproxy_keep$
 
 
 
-#####################
-## Write to output ##
-#####################
+##################
+## WRITE OUTPUT ##
+##################
 
-## those that will be dropped are 
-## ambiguous == Y
-## bedcov == TRUE & is.na(RSID_Proxy)
+out <- split(final, f = final$Subtype)
+
+for(type in 1:length(out)){
+  
+  #####################
+  ## Nimpress output ##
+  #####################
+  ## file
+  u <- gsub("\\s+", "_", unique(out[[type]]$Subtype))
+  filen <- paste(arguments$outpath,"/Output/NIMPRESS/", arguments$out_prefix, "_", u, "_NIMPRESS_input.txt", sep="")
+  ## if file exisits, delete content
+  ## title
+  write(arguments$title,file=filen, append=FALSE)
+  ## description
+  write(arguments$description,file=filen, append=TRUE)
+  ## citation
+  write(arguments$citation,file=filen, append=TRUE)
+  ## genome version
+  write(arguments$genome_version,file=filen, append=TRUE)
+  ## ofset
+  write(arguments$offset,file=filen, append=TRUE)
+  
+  ##data
+  x <- out[[type]][,c("CHR","START", "REF.ALLELE", "Risk_allele", "Effect.size", "Freq")]
+  
+  ## recode NA to NaN 
+  x$Freq <- "NaN"
+  
+  write.table(x, file=filen, sep="\t", row.names = FALSE, col.names = FALSE, quote = FALSE, append=TRUE)
+  
+  ###############################
+  ## Scores for use with PLINK ##
+  ###############################
+  
+  p <- gsub("\\s+", "_", unique(out[[type]]$Subtype))
+  
+  ## for locationID
+  filep <- paste(arguments$outpath,"/Output/PLINK/", arguments$out_prefix, "_", p, "_PLINK_input.txt", sep="")
+  
+  out[[type]][which(out[[type]][,"REF.ALLELE"] == "-"),"REF.ALLELE"] <- "*"
+  out[[type]][which(out[[type]][,"Risk_allele"] == "-"),"Risk_allele"] <- "*"
+  
+  z.rsID <- out[[type]][,c("rsID", "Risk_allele", "Effect.size", "P" )]
+  write.table(z.rsID, file=filep, sep="\t", row.names = FALSE, col.names = FALSE, quote = FALSE)
+  
+}
+
+ela <- Sys.time() - ela
+print(ela)
 
 
 
