@@ -1,0 +1,9 @@
+Example_GWAS_Summary_file_updated_nop
+Data description
+Citation
+GRCh37
+0
+19	44511389	G	G	-0.01005034	NaN
+9	21984661	A	C	-0.35667490	NaN
+10	63722895	C	C	0.48858000	0.34
+10	63745689	A	G	0.48242610	0.35

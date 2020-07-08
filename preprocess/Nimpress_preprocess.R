@@ -1,13 +1,3 @@
-###############################
-## TO DO - might be optional ##
-###############################
-
-## create catch that preprocessing script has been run - if not stop and request preprocessing script to be run
-## implement error catching for blacklist file download
-
-## might need to rearrange order of operation so that it errors are caught at the start and not after massive proprocessing 
-## such as LDproxy flag = On but Bedfile=NULL
-
 ##########################################
 ## GWAS summary data curations pipeline ##
 ##########################################
@@ -15,6 +5,9 @@
 ## turn warnings off
 oldw <- getOption("warn")
 options(warn = -1)
+
+## install package installation library
+install.packages("pacman")
 
 ## load command option library
 pacman::p_load(docopt)
@@ -86,11 +79,11 @@ source("Nimpress_preprocess_functions.R")
 ## LDlinkR gets loaded later if used since it takes a while to install
 message("[1/..] Loading libraries...")
 pacman::p_load(data.table,GenomicRanges,rentrez,BSgenome.Hsapiens.UCSC.hg19)
-## rentrez,bedr,LDlinkR,stringr,GenomicRanges
 
 ##################
 ## setup outdir ##
 ##################
+message("[2/..] Setting up output dir...")
 
 ## get file name from input file
 output_name1 <- gsub(".*/","", arguments$file)
@@ -107,6 +100,7 @@ if(is.null(arguments$output)){
 ## setup blacklisted genome bed file ##
 #######################################
 
+message("[3/..] Setting up blacklisted genome file...")
 ## this is for inbuilt blacklist file
 if(arguments$remove_blacklisted_regions == TRUE ){
   ## downlaod and read in file 
@@ -130,10 +124,10 @@ if(arguments$remove_blacklisted_regions == TRUE ){
 ## LDproxy ##
 #############
 
+message("[4/..] Testing LDproxy parameters... ")
 ## check if LDproxy is on
 LDproxy_flag = "OFF"
 if(!is.null(arguments$LDproxy_pop) & !is.null(arguments$LDproxy_token)){
-  message("[3/..] Testing LDproxy parameters... ")
   pacman::p_load(LDlinkR)
   ## to check LDproxy pop input - get all available pops from package
   pop <- list_pop()
@@ -158,7 +152,7 @@ if(LDproxy_flag == "ON" & bedfile == "NULL"){
 ## Genomic files ##
 ###################
 
-message("[2/..] Setting up genomic environment...")
+message("[5/..] Setting up genomic environment...")
 
 gv <- "GRCh37"
 assembly_file <- "Suppl/GCF_000001405.13_GRCh37_assembly_report.txt"
@@ -175,7 +169,7 @@ colnames(assembly) <- c("CHR", "NC_CHR")
 #####################
 #####################
 
-message(paste("[5/..] Processing file: ", arguments$file, sep="" ))
+message(paste("[6/..] Processing file: ", arguments$file,"this may take a while...", sep="" ))
 
 ## check and format input file
 gf_ok <- check_gwas_file(arguments$file)
@@ -253,6 +247,8 @@ SNP_is <- cbind(SNP_info, strand=unlist(strand), ambiguous= unlist(ambig))
 ## Check for Ambiguous SNPS ##
 ##############################
 
+message("[7/..] Defining ambigious SNPs")
+
 ## Check whether Risk ALlele is REF or ALT or neither (wrong)/ Flipped 
 rsm <- merge(SNP_is, gf_ok[,c("rsID","Risk_allele")], by="rsID")
 stp2 <- strsplit(rsm$ALT.ALLELE, "|")
@@ -308,6 +304,8 @@ SNP_fin <- cbind(rsm, risk_type=unlist(risk_type), flipped=unlist(flipped))
 ## Get coverage of rsID with blacklisted regions ##
 ###################################################
 
+message("[8/..] Checking input SNPS for coverage")
+
 if(bedfile == "NULL"){
   bedcov <- FALSE
   urercov <- cbind(SNP_fin, bedcov)
@@ -324,27 +322,23 @@ if(bedfile == "NULL"){
 ## LDproxy ##
 #############
 
+message("[9/..] Coverage and LDproxy...")
+
 ## if no bedfile all bedcov will equal FALSE, if no fall in region no sub needed
 if(length(unique(urercov$bedcov)) == 1 & unique(urercov$bedcov) == FALSE){
-  ## write output
-  
-  
+  ## append empty columns for downstream flag adding 
+  LDproxy_out <- cbind(urercov,NA,NA,NA,NA,NA)
+  colnames(LDproxy_out) <- c("rsID", "CHR.x", "START.x", "REF.ALLELE.x", "ALT.ALLELE.x", "SEQ", "strand", "ambiguous", "Risk_allele", "risk_type", "flipped", "bedcov", "RSID_Proxy", "CHR.y", "START.y", "REF.ALLELE.y", "ALT.ALLELE.y")
   
 ## if LDproxy not used and bedfile provided, remove those without coverage. 
 }else if (LDproxy_flag == "OFF" & bedfile != "NULL"){
   message("Remove blacklisted regions enabled, but LDproxy disabled...")
   message("rsID without coverage will be removed")
-  message("If however you would like those rsIDs without coverage to be substituted, add --remove_blacklisted_regions in commandline parameters")
-  #-------> LOG FILE those that are removed should be put into "log file"
+
+  ## append empty columns for downstream flag adding 
+  LDproxy_out <- cbind(urercov,NA,NA,NA,NA,NA)
+  colnames(LDproxy_out) <- c("rsID", "CHR.x", "START.x", "REF.ALLELE.x", "ALT.ALLELE.x", "SEQ", "strand", "ambiguous", "Risk_allele", "risk_type", "flipped", "bedcov", "RSID_Proxy", "CHR.y", "START.y", "REF.ALLELE.y", "ALT.ALLELE.y")
   
-  #LDproxy_out <- rsID CHR.x  START.x REF.ALLELE ALT.ALLELE bedcov RSID_Proxy CHR.y  START.y  REF  ALT
-  
-## if ldproxy is on but bedile not provided, don't need to do resub -- however LDproxy only needs to be done for thise falling in the bed region. So with bedfile both sub and resub are needed without bedfile don't know which to sub or whether its necesery so put an error flag to say, that LDproxy requires bedfile 
-  
-#}else if (LDproxy_flag == "ON" & bedfile == "NULL"){
-#  message("LDproxy required bedfile for sub")
-  #LDproxy_out <- rsID CHR.x  START.x REF.ALLELE ALT.ALLELE bedcov RSID_Proxy CHR.y  START.y  REF  ALT
-    
 ## do ldproxy and exlude those that fall in the bed regions  - do sub and resub
 }else if (LDproxy_flag == "ON" & bedfile != "NULL"){
   
@@ -408,10 +402,13 @@ all.res <- rbind(LDproxy_out, rs.rm.df)
 ## Set filter flag ##
 #####################
 
+message("[10/..] Generate intermediate file...")
+
 ## ldproxy flag. NA if bedcov = FALSE, Y if becov = TRUE & !is.na(RSID_Proxy), N if becov = TRUE & is.na(RSID_Proxy)
 ldproxy_flag <- rep(NA, nrow(all.res))
 ldproxy_flag[(all.res$bedcov == TRUE & !is.na(all.res$RSID_Proxy))] <- "Y"
 ldproxy_flag[(all.res$bedcov == TRUE & is.na(all.res$RSID_Proxy))] <- "N"
+ldproxy_flag[(all.res$bedcov == FALSE & is.na(all.res$RSID_Proxy))] <- "N"
 LDproxy_outl <- cbind(all.res, ldproxy_flag)
 
 rm_flag <- rep(NA, nrow(LDproxy_outl))
@@ -454,6 +451,8 @@ if(is.null(arguments$offset)){
 ## Kept risk loci - DEFINE CORRECT ALLELES ##
 #############################################
 #############################################
+
+message("[11/..] Generating NIMPRESS input file...")
 
 ## seperte kept from removed
 interm_keep <-  interm[interm$FLAG.RM == "N",]
@@ -500,7 +499,6 @@ LDPROXY_final.df <- do.call(rbind,LDPROXY_final.ls)
 #####################
 ## Combine results ##
 #####################
-
 
 LDPROXYfdf <- LDPROXY_final.df[,c(1:4,6:7)]
 dnSNPfdf <- dnSNP_final.df[,c(1:4,7:8)]
