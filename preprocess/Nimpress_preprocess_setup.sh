@@ -3,6 +3,7 @@
 ##############################
 
 ## wget for blacklisted regions place in Suppl file
+## implement error catching for blacklist file download
 
 ## install R packages required:
 # docopt

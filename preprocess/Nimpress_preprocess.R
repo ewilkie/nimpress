@@ -2,22 +2,11 @@
 ## TO DO - might be optional ##
 ###############################
 
-## remove p-value, not needed for nimpress input !! remove from input
-## rearrange input to only be single input file - provide suggestions on how to do multiple files
-## verbose turn off and on
 ## create catch that preprocessing script has been run - if not stop and request preprocessing script to be run
-## remove everything related to --GRCh38 !!
-## setup script needs to be completed
 ## implement error catching for blacklist file download
 
-## from readME: "rsIDs which don't represent SNVs will be treated as unusable" -> has this been implemented? 
 ## might need to rearrange order of operation so that it errors are caught at the start and not after massive proprocessing 
 ## such as LDproxy flag = On but Bedfile=NULL
-
-
-## multiple alt alleles returned from ldproxy - this shouldn't happend LDproxy is always one to one
-## don't want multiple LDproxy ALT alleles
-## biallelic reponse should always be ambigious
 
 ##########################################
 ## GWAS summary data curations pipeline ##
@@ -34,9 +23,6 @@ pacman::p_load(docopt)
 ## docopts ##
 #############
 
-## example command:  Rscript Nimpress_preprocess.R --file /Users/ewilkie/Documents/Polygenic/nimpress/preprocess/Example/Example_File_to_process.txt --GRCh37 --blacklisted_bed /Users/ewilkie/Documents/CCI_general_data_files/GRCh37_alldifficultregions.bed --LDproxy_pop GRB --LDproxy_token cbe1b45bc8be
-
-
 'NIMPRESS preprocess
 Usage:
   Nimpress_preprocess.R --file=<file_to_process> --description=<description> --citation=<citation> [(--LDproxy_pop=<BG population> --LDproxy_token=<token>) (--remove_blacklisted_regions | --blacklisted_regions_file=<bed>) --outpath=<outpath> --offset=<offset>]  
@@ -48,23 +34,21 @@ Usage:
 Arguments:
     --file=<file_to_process>     See Example folder for completed template
                           Text file containing risk loci file in template format:
-                          <GWAS summary statistic file and path in csv format>,<description>,<citation>
-                          GWAS summary statistic file contents:
-                          rsID,Risk_allele,Freq,<OR or BETA>,P-value
+                          rsID,Risk_allele,Freq,<OR or BETA>
                           <rsID> = the dbSNP Reference SNP cluster ID
                           <Risk_allele> = the allele associated with the trait or disease investigated
                           <Freq> = popultation frequency of the risk allele
-                          <OR> or <BETA> = Odds ratio or beta respectively, all value need to be of same type
+                          <OR> or <BETA> = Odds ratio or beta respectively, all value need to be of the same type
      
 Options:
   -h --help                         Show this screen.
   --version                         Show version.
   --outpath=<outpath>               Path to output location [DEFAULT: ./Nimpress_preprocess_Output]
-  --offset=<offset>                 Offset for NIMPRESS [DEFAULT: 0.0]
   --LDproxy_pop=<BG population>     Background populations for LDproxy
   --LDproxy_token=<token>           Generate token via https://ldlink.nci.nih.gov/?tab=apiaccess
   --remove_blacklisted_regions      Difficult to sequence regions from GIAB for rsID removal/substitution
   --blacklisted_regions_file=<bed>   Provide different bedfile for rsID removal/substitution 
+  --offset=<offset>                 Offset for NIMPRESS [DEFAULT: 0.0]
 
     
 ' -> doc
@@ -103,6 +87,23 @@ source("Nimpress_preprocess_functions.R")
 message("[1/..] Loading libraries...")
 pacman::p_load(data.table,GenomicRanges,rentrez,BSgenome.Hsapiens.UCSC.hg19)
 ## rentrez,bedr,LDlinkR,stringr,GenomicRanges
+
+##################
+## setup outdir ##
+##################
+
+## create output folder in setup file
+## get file name from input file
+output_name1 <- gsub(".*/","", arguments$file)
+output_name2 <- gsub("\\.csv","", output_name1)
+if(is.null(arguments$output)){
+  outdir <- "Nimpress_preprocess_Output"
+  dir.create(file.path(getwd(),outdir), showWarnings = FALSE)
+}else{
+  outdir <- arguments$output
+  dir.create(file.path(outdir), showWarnings = FALSE)
+}
+
 
 ###################
 ## Genomic files ##
@@ -428,12 +429,8 @@ interm <- LDproxyf[,c("INPUT.rsID","dbSNP.CHR","dbSNP.START","dbSNP.REF.ALLELE",
 ## order rows
 intermo <- interm[order(interm$FLAG.RM, interm$FLAG.AMBIGUOUS, interm$BED.COVERAGE, interm$FLAG.LDPROXY, interm$INPUT.RISK.TYPE, interm$FLAG.RISK.FLIPPED),]
 
-
-## create output folder in setup file
-## get file name from input file
-output_name1 <- gsub(".*/","", arguments$file)
-output_name2 <- gsub("\\.csv","", output_name1)
-rm_output_file <- paste("Results/", output_name2, "_Intermediate_results.csv", sep="")
+## write intermediate results to outfile
+rm_output_file <- paste(outdir,"/", output_name2, "_Intermediate_results.csv", sep="")
 write.table(intermo,rm_output_file, sep=",", row.names=F, quote=F)
 
 ############
@@ -516,7 +513,7 @@ final[is.na(final[,6]),6] <- "NaN"
 ##################
 
 ## setup output file
-filen <- paste("Results/", output_name2, "_NIMPRESS_input.txt", sep="")
+filen <- paste(outdir, "/", output_name2, "_NIMPRESS_input.txt", sep="")
 
 ## title
 write(output_name2,file=filen, append=FALSE)
