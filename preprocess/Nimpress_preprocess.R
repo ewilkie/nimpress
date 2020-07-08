@@ -70,11 +70,11 @@ arguments$LDproxy_pop ="GBR"
 arguments$LDproxy_token ="cbe1b45bc8be"
 arguments$offset <- 0
 
-###################
-###################
-## Initial setup ##
-###################
-###################
+###############################################################################################
+###############################################################################################
+#####################                     Initial setup              ##########################
+###############################################################################################
+###############################################################################################
 
 ## load processing functions files
 source("Nimpress_preprocess_functions.R")
@@ -92,7 +92,6 @@ pacman::p_load(data.table,GenomicRanges,rentrez,BSgenome.Hsapiens.UCSC.hg19)
 ## setup outdir ##
 ##################
 
-## create output folder in setup file
 ## get file name from input file
 output_name1 <- gsub(".*/","", arguments$file)
 output_name2 <- gsub("\\.csv","", output_name1)
@@ -104,36 +103,25 @@ if(is.null(arguments$output)){
   dir.create(file.path(outdir), showWarnings = FALSE)
 }
 
-
-###################
-## Genomic files ##
-###################
-
-message("[2/..] Setting up genomic environment...")
-
-gv <- "GRCh37"
-assembly_file <- "Suppl/GCF_000001405.13_GRCh37_assembly_report.txt"
-
-ass <- read.table(assembly_file, header=F, sep="\t",stringsAsFactors = F)
-ass_sub <- ass[,c(3,7)]
-assembly <- ass_sub[grep("NC_", ass_sub[,2]),]
-colnames(assembly) <- c("CHR", "NC_CHR")
-
-
 #######################################
 ## setup blacklisted genome bed file ##
 #######################################
 
 ## this is for inbuilt blacklist file
 if(arguments$remove_blacklisted_regions == TRUE ){
-  ## add error catching for blacklist file download - this is in preprocessing script
-  #bedfile <- path to dowloaded bed
-  #bedfile_to_Granges()
-## this is for custom blacklist file  
+  ## downlaod and read in file 
+  url <- "ftp://ftp-trace.ncbi.nlm.nih.gov/giab/ftp/release/genome-stratifications/v2.0/GRCh37/union/GRCh37_alldifficultregions.bed.gz"
+  tmp <- tempfile()
+  download.file(url,tmp)
+  giab.bed <- read.csv(gzfile(tmp),sep="\t", header=F,stringsAsFactors=FALSE, skip=1)
+  gr <- bedfile_to_Granges(giab.bed)
+  
+## this is for custom blacklist file provided  
 }else if(!is.null(arguments$blacklisted_regions_file)){
-  ## hardcode file in for now
+
   bedfile <- arguments$blacklisted_regions_file
-  gr <- bedfile_to_Granges(bedfile)
+  cust.bed <- fread(bedfile,sep="\t", header=TRUE,stringsAsFactors=FALSE)
+  gr <- bedfile_to_Granges(cust.bed)
 }else{
   bedfile = NULL
 }
@@ -161,6 +149,24 @@ if(!is.null(arguments$LDproxy_pop) & !is.null(arguments$LDproxy_token)){
     LDproxy_flag = "ON"
   }
 }
+
+if(LDproxy_flag == "ON" & bedfile == "NULL"){
+  stop("Parameters indicate LDproxy is desired, but no bedfile provided - please check you input parameters")
+}
+
+###################
+## Genomic files ##
+###################
+
+message("[2/..] Setting up genomic environment...")
+
+gv <- "GRCh37"
+assembly_file <- "Suppl/GCF_000001405.13_GRCh37_assembly_report.txt"
+
+ass <- read.table(assembly_file, header=F, sep="\t",stringsAsFactors = F)
+ass_sub <- ass[,c(3,7)]
+assembly <- ass_sub[grep("NC_", ass_sub[,2]),]
+colnames(assembly) <- c("CHR", "NC_CHR")
 
 
 #####################
@@ -202,8 +208,6 @@ if(length(rs.info.na) != 0 ){
 }else{
   rsID.df <- rsID_loc_df
 }
-
-
 
 ##################################
 ## Check REF allele with genome ##
@@ -324,7 +328,7 @@ if(bedfile == "NULL"){
 if(length(unique(urercov$bedcov)) == 1 & unique(urercov$bedcov) == FALSE){
   ## write output
   
-  #LDproxy_out <- rsID CHR.x  START.x REF.ALLELE ALT.ALLELE bedcov RSID_Proxy CHR.y  START.y  REF  ALT
+  
   
 ## if LDproxy not used and bedfile provided, remove those without coverage. 
 }else if (LDproxy_flag == "OFF" & bedfile != "NULL"){
@@ -336,8 +340,9 @@ if(length(unique(urercov$bedcov)) == 1 & unique(urercov$bedcov) == FALSE){
   #LDproxy_out <- rsID CHR.x  START.x REF.ALLELE ALT.ALLELE bedcov RSID_Proxy CHR.y  START.y  REF  ALT
   
 ## if ldproxy is on but bedile not provided, don't need to do resub -- however LDproxy only needs to be done for thise falling in the bed region. So with bedfile both sub and resub are needed without bedfile don't know which to sub or whether its necesery so put an error flag to say, that LDproxy requires bedfile 
-}else if (LDproxy_flag == "ON" & bedfile == "NULL"){
-  message("LDproxy required bedfile for sub")
+  
+#}else if (LDproxy_flag == "ON" & bedfile == "NULL"){
+#  message("LDproxy required bedfile for sub")
   #LDproxy_out <- rsID CHR.x  START.x REF.ALLELE ALT.ALLELE bedcov RSID_Proxy CHR.y  START.y  REF  ALT
     
 ## do ldproxy and exlude those that fall in the bed regions  - do sub and resub

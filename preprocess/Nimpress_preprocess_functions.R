@@ -10,10 +10,10 @@
 ##################
 
 
-bedfile_to_Granges <- function(bedfile){
-  ovlp <- fread(bedfile, header = FALSE, stringsAsFactors = FALSE)
-  colnames(ovlp) <- c("chr", "start", "end")
-  gr <- makeGRangesFromDataFrame(ovlp, keep.extra.columns = TRUE,starts.in.df.are.0based=TRUE)
+bedfile_to_Granges <- function(ovlp){
+  ovlp.df <- as.data.frame(ovlp)
+  colnames(ovlp.df) <- c("chr", "start", "end")
+  gr <- makeGRangesFromDataFrame(ovlp.df, keep.extra.columns = TRUE,starts.in.df.are.0based=TRUE)
 }
 
 

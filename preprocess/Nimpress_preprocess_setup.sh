@@ -2,8 +2,9 @@
 ## Nimpress prepocess setup ##
 ##############################
 
-## wget for blacklisted regions place in Suppl file
-## implement error catching for blacklist file download
+path="$(pwd)/Suppl"
+##get blacklisted regions - place in Suppl folder
+wget --directory-prefix=$path ftp://ftp-trace.ncbi.nlm.nih.gov/giab/ftp/release/genome-stratifications/v2.0/GRCh37/union/GRCh37_alldifficultregions.bed.gz
 
 ## install R packages required:
 # docopt
@@ -13,7 +14,6 @@
 ## move this to preprocessing
 #BiocManager::install("BSgenome.Hsapiens.UCSC.hg19")
 
-## create output folder
 
 
 
