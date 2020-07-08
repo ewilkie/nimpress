@@ -23,7 +23,7 @@ bedfile_to_Granges <- function(bedfile){
 
 check_gwas_file <- function(input){
   
-  gwas_file <- read.table(input, sep=",", header=T, colClasses=c("character","character","numeric", "numeric", "numeric"))
+  gwas_file <- read.table(input, sep=",", header=T, colClasses=c("character","character","numeric", "numeric"))
   
   ## remove blank rows
   blank <- which(gwas_file[,1] == "")
