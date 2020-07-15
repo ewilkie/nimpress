@@ -2,8 +2,24 @@
 ## Nimpress preprocessing functions ##
 ######################################
 
+## exit without error 
+stop_quietly <- function() {
+  opt <- options(show.error.messages = FALSE)
+  on.exit(options(opt))
+  stop()
+}
+
 ## Not in function
 '%!in%' <- function(x,y)!('%in%'(x,y));
+
+## for output without colnames 
+rename_cols <- function(df){
+  for (i in seq_along(df)) {
+    colnames(df)[i] = paste0('V', i)
+  }
+  return(df)
+}
+
 
 ##################
 ## load bedfile ##
