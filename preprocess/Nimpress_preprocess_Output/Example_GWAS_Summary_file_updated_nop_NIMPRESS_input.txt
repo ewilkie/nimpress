@@ -1,8 +1,8 @@
 Example_GWAS_Summary_file_updated_nop
-Data description
-Citation
+Testong descriptign
+Testing citations
 GRCh37
-0
+0.0
 12	96614125	C	T	0.19062040	NaN
 2	61042150	A	A	0.24686008	0.18
 7	50565404	T	C	0.27763170	NaN

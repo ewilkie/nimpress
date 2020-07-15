@@ -53,16 +53,16 @@ print(arguments)
 #stop("just checking arguments")
 
 ## for testing only 
-setwd("/Users/ewilkie/Documents/Work/CCI/Polygenic/nimpress/preprocess")
-arguments <- list()
-arguments$description="Data description"
-arguments$citation="Citation"
+#setwd("/Users/ewilkie/Documents/Work/CCI/Polygenic/nimpress/preprocess")
+#arguments <- list()
+#arguments$description="Data description"
+#arguments$citation="Citation"
 #arguments$remove_blacklisted_regions = TRUE
-arguments$blacklisted_regions_file = "/Users/ewilkie/Documents/Work/CCI/CCI_general_data_files/GRCh37_alldifficultregions.tier3.sorted.merged.sorted.bed"
+#arguments$blacklisted_regions_file = "/Users/ewilkie/Documents/Work/CCI/CCI_general_data_files/GRCh37_alldifficultregions.tier3.sorted.merged.sorted.bed"
 #arguments$remove_blacklisted_regions = FALSE
-arguments$file = "Example/Example_GWAS_Summary_file_updated_nop.csv"
-arguments$LDproxy_pop ="GBR"
-arguments$LDproxy_token ="cbe1b45bc8be"
+#arguments$file = "Example/Example_GWAS_Summary_file_updated_nop.csv"
+#arguments$LDproxy_pop ="GBR"
+#arguments$LDproxy_token ="cbe1b45bc8be"
 #arguments$offset <- 0
 
 ###############################################################################################
@@ -519,8 +519,6 @@ final <- rbind(LDPROXYfdf,dnSNPfdf)
 ## for nimpress compatibility
 final[is.na(final[,6]),6] <- "NaN"
 
-final <- unname(final)
-
 ##################
 ## WRITE OUTPUT ##
 ##################
@@ -537,7 +535,7 @@ write(arguments$citation,file=filen, append=TRUE)
 ## genome version
 write(gv,file=filen, append=TRUE)
 ## ofset
-write(offset,file=filen, append=TRUE)
+write(arguments$offset,file=filen, append=TRUE)
   
 write.table(final, file=filen, sep="\t", row.names = FALSE, col.names = FALSE, quote = FALSE, append=TRUE)
  
