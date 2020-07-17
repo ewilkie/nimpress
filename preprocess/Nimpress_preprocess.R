@@ -49,21 +49,6 @@ Options:
 ' -> doc
 
 arguments <- docopt(doc, version = 'NIMPRESS Preprocess for R version 4.0.0 (2020-04-24)\n')
-print(arguments)
-#stop("just checking arguments")
-
-## for testing only 
-#setwd("/Users/ewilkie/Documents/Work/CCI/Polygenic/nimpress/preprocess")
-#arguments <- list()
-#arguments$description="Data description"
-#arguments$citation="Citation"
-#arguments$remove_blacklisted_regions = TRUE
-#arguments$blacklisted_regions_file = "/Users/ewilkie/Documents/Work/CCI/CCI_general_data_files/GRCh37_alldifficultregions.tier3.sorted.merged.sorted.bed"
-#arguments$remove_blacklisted_regions = FALSE
-#arguments$file = "Example/Example_GWAS_Summary_file_updated_nop.csv"
-#arguments$LDproxy_pop ="GBR"
-#arguments$LDproxy_token ="cbe1b45bc8be"
-#arguments$offset <- 0
 
 ###############################################################################################
 ###############################################################################################
