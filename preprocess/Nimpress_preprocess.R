@@ -59,19 +59,27 @@ arguments <- docopt(doc, version = 'NIMPRESS Preprocess for R version 4.0.0 (202
 ## load processing functions files
 source("Nimpress_preprocess_functions.R")
 
-
 ###############
 ## libraries ##
 ###############
 
 ## LDlinkR gets loaded later if used since it takes a while to install
-message("[1/11] Loading libraries...")
+message("[1/12] Loading libraries...")
 pacman::p_load(data.table,GenomicRanges,rentrez,BSgenome.Hsapiens.UCSC.hg19)
+
+######################
+## Check input file ##
+######################
+
+message(paste("[2/12] Checking file: ", arguments$file, sep="" ))
+
+## check and format input file
+gf_ok <- check_gwas_file(arguments$file)
 
 ##################
 ## setup outdir ##
 ##################
-message("[2/11] Setting up output dir...")
+message("[3/12] Setting up output dir...")
 
 ## get file name from input file
 output_name1 <- gsub(".*/","", arguments$file)
@@ -88,7 +96,7 @@ if(is.null(arguments$output)){
 ## setup blacklisted genome bed file ##
 #######################################
 
-message("[3/11] Setting up blacklisted genome file...")
+message("[4/12] Setting up blacklisted genome file...")
 ## this is for inbuilt blacklist file
 if(!is.null(arguments$remove_blacklisted_regions) && arguments$remove_blacklisted_regions == TRUE ){
   ## dl file if doesn't already exist
@@ -116,7 +124,7 @@ if(!is.null(arguments$remove_blacklisted_regions) && arguments$remove_blackliste
 ## LDproxy ##
 #############
 
-message("[4/11] Testing LDproxy parameters... ")
+message("[5/12] Testing LDproxy parameters... ")
 ## check if LDproxy is on
 LDproxy_flag = "OFF"
 if(!is.null(arguments$LDproxy_pop) & !is.null(arguments$LDproxy_token)){
@@ -146,7 +154,7 @@ if(LDproxy_flag == "ON" & is.null(bedfile)){
 ## Genomic files ##
 ###################
  
-message("[5/11] Setting up genomic environment...")
+message("[6/12] Setting up genomic environment...")
 
 gv <- "GRCh37"
 assembly_file <- "Suppl/GCF_000001405.13_GRCh37_assembly_report.txt"
@@ -163,20 +171,13 @@ colnames(assembly) <- c("CHR", "NC_CHR")
 #####################
 #####################
 
-message(paste("[6/11] Processing file: ", arguments$file," ...this may take a while...", sep="" ))
+message(paste("[7/12] Processing file: ", arguments$file," ...this may take a while...", sep="" ))
 
-## check and format input file
-gf_ok <- check_gwas_file(arguments$file)
-
-## get indext of rsID column
-rsID_ind <- grep("rsID", colnames(gf_ok))
-## extract rsID and make unique
-rsID <- gf_ok[,rsID_ind]
-rsIDu <- as.vector(unique(rsID))
-  
 ##########################################
 ## get rdID genomic location from dbSNP ##
 ##########################################
+
+rsIDu <- as.vector(gf_ok$rsID)
 
 rsID_loc <- list()
 for (rsid in 1: length(rsIDu)){
@@ -241,7 +242,7 @@ SNP_is <- cbind(SNP_info, strand=unlist(strand), ambiguous= unlist(ambig))
 ## Check for Ambiguous SNPS ##
 ##############################
 
-message("[7/11] Defining ambigious SNPs...")
+message("[8/12] Defining ambigious SNPs...")
 
 ## Check whether Risk ALlele is REF or ALT or neither (wrong)/ Flipped 
 rsm <- merge(SNP_is, gf_ok[,c("rsID","Risk_allele")], by="rsID")
@@ -298,7 +299,7 @@ SNP_fin <- cbind(rsm, risk_type=unlist(risk_type), flipped=unlist(flipped))
 ## Get coverage of rsID with blacklisted regions ##
 ###################################################
 
-message("[8/11] Checking input SNPS for coverage...")
+message("[9/12] Checking input SNPS for coverage...")
 
 if(is.null(bedfile)){
   bedcov <- FALSE
@@ -316,7 +317,7 @@ if(is.null(bedfile)){
 ## LDproxy ##
 #############
 
-message("[9/11] Coverage and LDproxy... this will take a while... ")
+message("[10/12] Coverage and LDproxy... this will take a while... ")
 
 ## if no bedfile all bedcov will equal FALSE, if no fall in region no sub needed
 if(length(unique(urercov$bedcov)) == 1 & unique(urercov$bedcov) == FALSE){
@@ -396,7 +397,7 @@ all.res <- rbind(LDproxy_out, rs.rm.df)
 ## Set filter flag ##
 #####################
 
-message("[10/11] Generate intermediate file...")
+message("[11/12] Generate intermediate file...")
 
 ## ldproxy flag. NA if bedcov = FALSE, Y if becov = TRUE & !is.na(RSID_Proxy), N if becov = TRUE & is.na(RSID_Proxy)
 ldproxy_flag <- rep(NA, nrow(all.res))
@@ -435,7 +436,7 @@ write.table(intermo,rm_output_file, sep=",", row.names=F, quote=F)
 #############################################
 #############################################
 
-message("[11/11] Generating NIMPRESS input file...")
+message("[12/12] Generating NIMPRESS input file...")
 
 ## seperte kept from removed
 interm_keep <-  interm[interm$FLAG.RM == "N",]

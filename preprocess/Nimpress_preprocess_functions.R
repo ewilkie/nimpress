@@ -61,18 +61,20 @@ check_gwas_file <- function(input){
   rsid_pattern <- "^rs\\d{1,}"
   sw <- grepl(rsid_pattern,gwas_file$rsID, ignore.case = T)
   sww <- which(sw !=TRUE)
-  if(length(sww) == 0){
-    message("All rsID ok")
-  }else{
-    stop(paste("Invalid format for", gwas_file$rsID[sww] , " on line ", sww, sep=""))
+  if(length(sww) > 0){
+    stop(paste("Invalid format for", paste(gwas_file$rsID[sww],collapse=", ") , " on line ", sww, sep=""))
+  }
+  
+  ## check ik all rsIDs are unique
+  dups <- gwasu$rsID[duplicated(gwasu$rsID)]
+  if(length(dups) > 0){
+    stop(paste("The following rsIDs are duplicated ", paste(unique(dups),collapse=", "), sep=""))
   }
   
   ## check if valid nucleotides
   nva <- which(gwas_file$Risk_allele %!in% c("A", "T", "G", "C"))
-  if(length(nva) == 0){
-    message("All Risk_allele ok")
-  }else{
-    stop(paste("Line ", nva, " does not contain a valid risk allele", sep=""))
+  if(length(nva) > 0){
+    stop(paste("Line ", paste(unique(nva), collapse=","), " does not contain a valid risk allele", sep=""))
   }
   
   ## Format Effect size
@@ -88,8 +90,12 @@ check_gwas_file <- function(input){
     colnames(gwas_file)[beta.ind] <- "Effect.size"
   }
   
+  message("All rsID ok")
+  message("All Risk_allele ok")
   return(gwas_file)
 }  
+
+
 
 ##########################################
 ## get rdID genomic location from dbSNP ##
