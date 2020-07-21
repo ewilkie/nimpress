@@ -66,7 +66,7 @@ check_gwas_file <- function(input){
   }
   
   ## check ik all rsIDs are unique
-  dups <- gwasu$rsID[duplicated(gwasu$rsID)]
+  dups <- gwas_file$rsID[duplicated(gwas_file$rsID)]
   if(length(dups) > 0){
     stop(paste("The following rsIDs are duplicated ", paste(unique(dups),collapse=", "), sep=""))
   }
