@@ -352,7 +352,6 @@ if(length(unique(urercov$bedcov)) == 1 & unique(urercov$bedcov) == FALSE){
   if(length(ldproxy_input) > 0){
     ldproxy_ls <- list()
     for(s in 1:length(ldproxy_input)){
-      print(s)
       ## need this or it will error
       snp <- ldproxy_input[s]
       # main function to get ldproxy results
