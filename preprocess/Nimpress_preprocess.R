@@ -18,26 +18,28 @@ pacman::p_load(docopt)
 
 'NIMPRESS preprocess
 Usage:
-  Nimpress_preprocess.R --file=<file_to_process> [--description=<description> --citation=<citation> (--LDproxy_pop=<BG population> --LDproxy_token=<token>) (--remove_blacklisted_regions | --blacklisted_regions_file=<bed>) --outpath=<outpath> --offset=<offset>]  
-  Nimpress_preprocess.R --file=<file_to_process> --remove_blacklisted_regions
-  Nimpress_preprocess.R --file=<file_to_process> --remove_blacklisted_regions --LDproxy_pop=<BG population> --LDproxy_token=<token>
-  Nimpress_preprocess.R --file=<file_to_process> --LDproxy_pop=<BG population> --LDproxy_token=<token>
+  Nimpress_preprocess.R --file=<file_to_process> --description=<description> --citation=<citation> [(--LDproxy_pop=<BG population> --LDproxy_token=<token>) (--remove_blacklisted_regions | --blacklisted_regions_file=<bed>) --outpath=<outpath> --offset=<offset>]  
+  Nimpress_preprocess.R --file=<file_to_process> --description=<description> --citation=<citation> --remove_blacklisted_regions
+  Nimpress_preprocess.R --file=<file_to_process> --description=<description> --citation=<citation> --blacklisted_regions_file=<bed>
+  Nimpress_preprocess.R --file=<file_to_process> --description=<description> --citation=<citation> --remove_blacklisted_regions --LDproxy_pop=<BG population> --LDproxy_token=<token>
+    Nimpress_preprocess.R --file=<file_to_process> --description=<description> --citation=<citation> --blacklisted_regions_file=<bed> --LDproxy_pop=<BG population> --LDproxy_token=<token>
+  Nimpress_preprocess.R --file=<file_to_process> 
   Nimpress_preprocess.R (-h | --help)
   Nimpress_preprocess.R --version
 Arguments:
     --file=<file_to_process>     See Example folder for completed template
-                          Text file containing risk loci file in template format:
-                          rsID,Risk_allele,Freq,<OR or BETA>
-                          <rsID> = the dbSNP Reference SNP cluster ID
-                          <Risk_allele> = the allele associated with the trait or disease investigated
-                          <Freq> = popultation frequency of the risk allele
-                          <OR> or <BETA> = Odds ratio or beta respectively, all value need to be of the same type
+                                 Text file containing risk loci file in template format:
+                                 rsID,Risk_allele,Freq,<OR or BETA>
+                                 <rsID> = the dbSNP Reference SNP cluster ID
+                                 <Risk_allele> = the allele associated with the trait or disease investigated
+                                 <Freq> = popultation frequency of the risk allele
+                                 <OR> or <BETA> = Odds ratio or beta respectively, all value need to be of the same type
+    --description=<description>  Description of data
+    --citation=<citation>        Data source citation  
      
 Options:
   -h --help                         Show this screen.
   --version                         Show version.
-  --description=<description>       Description of input data [DEFAULT: NONE]   
-  --citation=<citation>             Citation for input data [DEFAULT: NONE]
   --outpath=<outpath>               Path to output location [DEFAULT: ./Nimpress_preprocess_Output]
   --LDproxy_pop=<BG population>     Background populations for LDproxy
   --LDproxy_token=<token>           Generate token via https://ldlink.nci.nih.gov/?tab=apiaccess
@@ -490,12 +492,17 @@ LDPROXY_final.df <- do.call(rbind,LDPROXY_final.ls)
 ## Combine results ##
 #####################
 
-if(nrow(dnSNP_final.df) > 0){
+
+if(is.null(dnSNP_final.df)){
+  dnSNPfdf <- NULL
+}else if(nrow(dnSNP_final.df) > 0){
   dnSNPfdf <- dnSNP_final.df[,c(1:4,7:8)]
   dnSNPfdf <- rename_cols(dnSNPfdf)
 }
 
-if(nrow(LDPROXY_final.df) > 0){
+if(is.null(LDPROXY_final.df)){
+  LDPROXYfdf <- NULL
+}else if(nrow(LDPROXY_final.df) > 0){
   LDPROXYfdf <- LDPROXY_final.df[,c(1:4,6:7)]
   LDPROXYfdf <- rename_cols(LDPROXYfdf)
 }

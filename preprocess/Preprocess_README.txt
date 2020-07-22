@@ -7,13 +7,18 @@ Located in the same dir are the following dependencies:
 - Suppl data is located and downloaded to the Suppl folder 
 - Output dir Nimpress_preprocess_Output 
 
+General note:
+- Only works on genome build version GRCh37
+- dbSNP version 151 is used
+- tested on R 4.0.0 see details below
+
 ###########
 ## Input ##
 ###########
 
 Minimum input is a file to be processed in the following format containing header and columns:
 
-rsID,Risk_allele,Freq,<OR or BETA>,P-value
+rsID,Risk_allele,Freq,<OR> or <BETA>
 
 <rsID> = the dbSNP Reference SNP cluster ID
 <Risk_allele> = the allele which has been determined to be associated with the trait/ disease investigated
@@ -43,55 +48,46 @@ Intermediate file that can be used for debugging has suffix Intermediate_results
 - INPUT.ALLELE.FREQ	input frequency
 - INPUT.BETA input beta (converted from OR if that is supplied instead)
 
-###################
-## Functionality ##
-###################
+#############################
+## Functionality and Usage ##
+#############################
 
--Only works on genome build version GRCh37
+The preprocessing script can be run in three different modes. 
 
-Notes on Linkage disequalibrium proxy substitution:
-SNPs can only be substituted if they are in the 1000 Genome reference panel and have GRCh37 coordinates. Therefore if GRCh38 is selected and LDproxy parameters specified, the LDproxy functionality will be turned off
+The most basic requires only the input file and description and citation parameters 
+Rscript Nimpress_preprocess.R --file ./Example/Example_GWAS_Summary_file_updated_nop.csv --description "Example file" --citation "Authors et al., (2020) Title. Journal"
 
-monoallelic in the population selected will be removed
-
-dbSNP version 151 (Database of Single Nucleotide Polymorphisms [DBSNP], 2007) is used to match query RS numbers with the genomic coordinates (GRCh37) of the SNPs of interest
-
-LDproxy_pop: a 1000 Genomes Project population: 
-Select one from: https://www.internationalgenome.org/faq/which-populations-are-part-your-study
-
-The underlying preprocessing script has the following functionality
-
+This will:
 - convert OR to Beta via log transformation
-- query dbSNP to extract reference allele and genomic location. rsIDs which don't represent SNVs will be treated as unusable
-- if remove "black-listed genomic regions" flag is set or bed file is provided, but if LDpoxy parameters are not set rsIDs that fall in those regions will be removed. If LDproxy parameters are set, rsIDS without coverage will be substituted with alternative rsIDs that have an LD value > 0.9
+- query dbSNP to get the rsID chromosomal locations and reference allele (REF) and alternative allele (ALT)
+- rsIDs which don't represent SNVs will be treated as unusable
+- BSgenome.Hsapiens.UCSC.hg19 will be used to obtained the strand
+- risk allele will be checked against the above to determine whether the allele is ambigious (risk allele is equal to one of REF or ALT and complement of either REF or ALT) and whether strand flipping has occured (risk allele the same as the complement of REF or ALT). Ambiguous alleles are removed further analysis and won't appear in the output. While strand filling will be corrected
 
-- check for strand flipping and define correct alleles if strand flipping has occured
+An extension is enabled by specifying parameters related to a blacklisted bed file containing genomic coordinates of regions that are diffictul to sequence. 
 
-## NCBI information on strand orientation
-## ncbi.nlm.nih.gov/books/NBK44476/#Reports.how_do_i_determine_orientation_o
+Using the default file (GIAB v2.0 stratification BED file  https://github.com/genome-in-a-bottle/genome-stratifications)
+Rscript Nimpress_preprocess.R --file ./Example/Example_GWAS_Summary_file_updated_nop.csv --description "Example file" --citation "Authors et al., (2020) Title. Journal" --remove_blacklisted_regions
 
+Using a supplied bed file:
+Rscript Nimpress_preprocess.R --file ./Example/Example_GWAS_Summary_file_updated_nop.csv --description "Example file" --citation "Authors et al., (2020) Title. Journal" --blacklisted_regions_file inhouse_blacklisted_bed.bed
 
-###########
-## Usage ##
-###########
+This will:
+- perform the same action as basic functionality
+- remove any rsIDs form input that are located within the bed regions
 
-Minimal command to run preprocessing: Rscript Nimpress_preprocess.R --file=Example/Example_File_to_process.csv 
+Full functionality of the preprocessing script is invoked by providing parameters related to LDproxy:
 
-Optional parameters:
---offset:   DEFAULT: 0.0
+Rscript Nimpress_preprocess.R --file ./Example/Example_GWAS_Summary_file_updated_nop.csv --description "Example file" --citation "Authors et al., (2020) Title. Journal" --remove_blacklisted_regions --LDproxy_pop GBR --LDproxy_token abcdef
 
-If LDproxy is desired both of the following parameters are required:
---LDproxy_pop: a 1000 Genomes Project population more details below: DEFAULT: GBR
---LDproxy_token <generate token via https://ldlink.nci.nih.gov/?tab=apiaccess>
+Rscript Nimpress_preprocess.R --file ./Example/Example_GWAS_Summary_file_updated_nop.csv --description "Example file" --citation "Authors et al., (2020) Title. Journal" --blacklisted_regions_file inhouse_blacklisted_bed.bed --LDproxy_pop GBR --LDproxy_token abcdef
 
-If removal of rsID in difficult to sequence genomic regions is desired or substitueted with rsIDs in LD if above options are set use:
---blacklisted_bed: bed file containng regions. Will be downloaded and places in /Suppl folder if Nimpress_preprocess_setup.sh is run
-
-The --file input needs to be a .csv file, where each line represents a file to be preprocessed in the following format:
-
-<GWAS summary statistic file and path in csv format>,<description>,<citation>
-
-The first two parameters are required, description and citiation can be left blank however are encouraged to be used for ease of recordkeeping. The name of the input file will be used as the basis for the name of the output file and therefore should be used to distinguish different subtypes if desired. 
+This will:
+- perform the same action as above with the addition of substituting those rsIDs which fall into the blacklisted bed regions with another rsID that has a linkage disequalibrium R-squared value > 0.9
+- SNPs can only be substituted via LDproxy if they are in the 1000 Genome reference panel, a population from that project is selected and a valid API token provided
+- monoallelic genes in the population selected will be removed
+- 1000 Genomes Project population: https://www.internationalgenome.org/faq/which-populations-are-part-your-study
+- generate an LDproxy API token via: https://ldlink.nci.nih.gov/?tab=apiaccess
 
 #########################
 ## Built and tested on ##
