@@ -84,6 +84,7 @@ Rscript Nimpress_preprocess.R --file ./Example/Example_GWAS_Summary_file_updated
 
 This will:
 - perform the same action as above with the addition of substituting those rsIDs which fall into the blacklisted bed regions with another rsID that has a linkage disequalibrium R-squared value > 0.9
+- If no suitable LDproxy substitution rsIDs exist because of R-squared value filtering, all candidates already exist in the input date or are located in the blacklisted bed regions, the rsID will be removed
 - SNPs can only be substituted via LDproxy if they are in the 1000 Genome reference panel, a population from that project is selected and a valid API token provided
 - monoallelic genes in the population selected will be removed
 - 1000 Genomes Project population: https://www.internationalgenome.org/faq/which-populations-are-part-your-study
