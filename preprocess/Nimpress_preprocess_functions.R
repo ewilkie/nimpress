@@ -101,8 +101,6 @@ check_gwas_file <- function(input){
 ## get rdID genomic location from dbSNP ##
 ##########################################
 
-#x <- tax_list$DocumentSummary$DOCSUM
-
 ## extracts information from rsID dbSNP lookup: CHR, start, REF.Allele, ALT.Allele
 format_dbSNP <- function(x){
   ## extract assembly, genome position and variant details 
@@ -135,9 +133,6 @@ format_dbSNP <- function(x){
 
 ## this function lookes up information in the dbSNP database for each rsID
 ## Multi Alt Alleles are collapsed so it works better with downstream functions 
-
-#rsid_input <- "rs3731217"
-#rsid_input <- "rs7087507"
 
 getrsID_info <- function(rsid_input){
   snp_term <- paste(rsid_input, "[RS]", sep="")
@@ -201,36 +196,6 @@ get_cov <- function(snp_info){
 ###################
 ## Dlinkpipeline ##
 ###################
-
-# dbSNP version 151 (Database of Single Nucleotide Polymorphisms [DBSNP], 2007) is used to match query RS numbers with the genomic coordinates (GRCh37) of the SNPs of interest
-
-## from ldproxy website: https://ldlink.nci.nih.gov/?tab=help#LDproxy
-## RS number must match a bi-allelic variant.
-## definition of biallelic: Of or pertaining to both alleles of a single gene (paternal and maternal). For example, biallelic mutation carriers have a mutation (not necessarily the same mutation) in both copies of a particular gene (a paternal and a maternal mutation).
-## https://www.cancer.gov/publications/dictionaries/genetics-dictionary/def/biallelic#:~:text=Of%20or%20pertaining%20to%20both,paternal%20and%20a%20maternal%20mutation).
-## ldproxy only returns one allele as a result, while multuple alt alleles can be present in the data - so need to modify code to get those alt alleles from dnSnp with new RSID... 
-
-## check with: snp <- "rs312" and getrsID_info("rs316")
-
-## certain rsIDs can be perfectly linked. 
-## in this case the LDproxy rsID turned out to be the same
-##https://ldlink.nci.nih.gov/?var1=rs4948492&var2=rs4245597&pop=GBR&tab=ldpair
-## could potentially also arise due to different issues, but the solution is to keep track of the new rsIDs and if that is already obtained, find another one, if no exist, drop the original rsID
-
-## Seems like there might be some dodgy output from LDproxy that needs to be checked against
-##https://www.ncbi.nlm.nih.gov/books/NBK44476/#Reports.dbsnp_reports_rs10512248_alleles
-
-
-
-#error: rs965506592 is not in 1000G reference panel.,
-
-#snp <- "rs965506592"
-#snp <- "rs3731217"
-#pop <- arguments$LDproxy_pop
-#token <- arguments$LDproxy_token
-#s <- 1
-#snp <- ldproxy_input[s]
-
 
 ## function to check ldproxy res for coverage
 ldproxy_check_cov <- function(ldpoxy_inter_df2){
@@ -305,7 +270,7 @@ getLDproxy <- function(snp, pop, token, SNP_kept){
         ## get ind of ldproxy without bedcov
         ldpoxy_output <- ldproxy_check_cov(ldpoxy_inter_df2)
         ## need to get info on ALT alleles via different function 
-        lr <- lapply(ldpoxy_output$RSID_Proxy, getrsID_info)
+        lr <- lapply(ldpoxy_output[,"RSID_Proxy"], getrsID_info)
         ldpoxy_output2 <- cbind(snp, do.call(rbind, lr))
         colnames(ldpoxy_output2)[1:2] <- c("RSID_input", "RSID_Proxy")                        
         
@@ -314,7 +279,7 @@ getLDproxy <- function(snp, pop, token, SNP_kept){
         ## check for bed coverage before output 
         ldpoxy_output <- ldproxy_check_cov(ldpoxy_inter_df)
         ## need to get info on ALT alleles via different function
-        lr <- lapply(ldpoxy_output$RSID_Proxy, getrsID_info)
+        lr <- lapply(ldpoxy_output[,"RSID_Proxy"], getrsID_info)
         ldpoxy_output2 <- cbind(snp, do.call(rbind, lr))
         colnames(ldpoxy_output2)[1:2] <- c("RSID_input", "RSID_Proxy")       
       }

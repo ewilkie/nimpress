@@ -52,6 +52,9 @@ Options:
 
 arguments <- docopt(doc, version = 'NIMPRESS Preprocess for R version 4.0.0 (2020-04-24)\n')
 
+
+
+
 ###############################################################################################
 ###############################################################################################
 #####################                     Initial setup              ##########################
@@ -183,7 +186,7 @@ rsIDu <- as.vector(gf_ok$rsID)
 
 rsID_loc <- list()
 for (rsid in 1: length(rsIDu)){
-  message(paste("Getting info for : ", rsIDu[rsid],sep=""))
+  message(paste("Getting info for: ", rsIDu[rsid],sep=""))
   res <- getrsID_info(rsIDu[rsid])
   rsID_loc[[rsid]] <- res
 }
@@ -197,6 +200,7 @@ if(length(rs.info.na) != 0 ){
   colnames(rs.rm.df) <- c("rsID", "CHR.x","START.x","REF.ALLELE.x","ALT.ALLELE.x","SEQ","strand","ambiguous","Risk_allele","risk_type","flipped","bedcov","RSID_Proxy","CHR.y","START.y","REF.ALLELE.y","ALT.ALLELE.y")
   rsID.df <- rsID_loc_df[-rs.info.na,]
 }else{
+  rs.rm.df <- NULL
   rsID.df <- rsID_loc_df
 }
 
@@ -348,8 +352,11 @@ if(length(unique(urercov$bedcov)) == 1 & unique(urercov$bedcov) == FALSE){
   if(length(ldproxy_input) > 0){
     ldproxy_ls <- list()
     for(s in 1:length(ldproxy_input)){
-      ## need to implement collapse of duplicate alt alleles - 
-      ldproxy_res <- getLDproxy(ldproxy_input[s], arguments$LDproxy_pop, arguments$LDproxy_token, SNP_kept)
+      print(s)
+      ## need this or it will error
+      snp <- ldproxy_input[s]
+      # main function to get ldproxy results
+      ldproxy_res <- getLDproxy(snp, arguments$LDproxy_pop, arguments$LDproxy_token, SNP_kept)
       ## if results is NA add it anyways for later removal 
       if(is.na(ldproxy_res$RSID_Proxy)[1]){
         ldproxy_res_keep <- ldproxy_res
@@ -366,20 +373,23 @@ if(length(unique(urercov$bedcov)) == 1 & unique(urercov$bedcov) == FALSE){
         }
       }
       
-      ## combine ldproxy_res with orignal input - use all to get also those that return NA for proxy to later filter
-      mres <- merge(urercov, ldproxy_res_keep, by.x="rsID", by.y="RSID_input", all=T)
+      ## combine ldproxy_res with orignal input - use all to get also those that return NA for ldproxy to later filter
+      mres <- merge(urercov, ldproxy_res_keep, by.x="rsID", by.y="RSID_input")
       ldproxy_ls[[s]] <- mres
     }
     
-    LDproxy_df <- do.call(rbind, ldproxy_ls)
-    LDproxy_in <- LDproxy_df[!is.na(LDproxy_df$RSID_Proxy),]
+    LDproxy_in <- do.call(rbind, ldproxy_ls)
     
-    ## format results that don't have bedcov
-    nocov_padd <- cbind(urercov[-run_ind,],NA,NA,NA,NA,NA)
-    colnames(nocov_padd) <- c("rsID", "CHR.x", "START.x", "REF.ALLELE.x", "ALT.ALLELE.x", "SEQ", "strand", "ambiguous", "Risk_allele", "risk_type", "flipped", "bedcov", "RSID_Proxy", "CHR.y", "START.y", "REF.ALLELE.y", "ALT.ALLELE.y")
+    ## if not all results don't have coverage
+    if(nrow(urercov) !=  length(run_ind)){
+      nocov_padd <- cbind(urercov[-run_ind,],NA,NA,NA,NA,NA)
+      colnames(nocov_padd) <- c("rsID", "CHR.x", "START.x", "REF.ALLELE.x", "ALT.ALLELE.x", "SEQ", "strand", "ambiguous", "Risk_allele", "risk_type", "flipped", "bedcov", "RSID_Proxy", "CHR.y", "START.y", "REF.ALLELE.y", "ALT.ALLELE.y")
     
-    ## final output
-    LDproxy_out <- rbind(nocov_padd, LDproxy_in)
+      # final output
+      LDproxy_out <- rbind(nocov_padd, LDproxy_in)
+    }else{
+      LDproxy_out <- LDproxy_in
+    }
   }else{
     nocov_padd <- cbind(urercov,NA,NA,NA,NA,NA)
     colnames(nocov_padd) <- c("rsID", "CHR.x", "START.x", "REF.ALLELE.x", "ALT.ALLELE.x", "SEQ", "strand", "ambiguous", "Risk_allele", "risk_type", "flipped", "bedcov", "RSID_Proxy", "CHR.y", "START.y", "REF.ALLELE.y", "ALT.ALLELE.y")
@@ -404,13 +414,17 @@ message("[11/12] Generate intermediate file...")
 ## ldproxy flag. NA if bedcov = FALSE, Y if becov = TRUE & !is.na(RSID_Proxy), N if becov = TRUE & is.na(RSID_Proxy)
 ldproxy_flag <- rep(NA, nrow(all.res))
 ldproxy_flag[(all.res$bedcov == TRUE & !is.na(all.res$RSID_Proxy))] <- "Y"
+ldproxy_flag[is.na(all.res$bedcov)] <- "N"
 ldproxy_flag[(all.res$bedcov == TRUE & is.na(all.res$RSID_Proxy))] <- "N"
 ldproxy_flag[(all.res$bedcov == FALSE & is.na(all.res$RSID_Proxy))] <- "N"
 LDproxy_outl <- cbind(all.res, ldproxy_flag)
 
 rm_flag <- rep(NA, nrow(LDproxy_outl))
-rm_flag[(LDproxy_outl$ambiguous == "Y" | LDproxy_outl$ldproxy_flag == "N")] <- "Y"
-rm_flag[(LDproxy_outl$ambiguous != "Y" | LDproxy_outl$ldproxy_flag != "N")] <- "N"
+rm_flag[LDproxy_outl$ambiguous == "Y"] <- "Y"
+rm_flag[(LDproxy_outl$ambiguous == "N" & LDproxy_outl$bedcov == TRUE & LDproxy_outl$ldproxy_flag == "N")] <- "Y"
+rm_flag[(LDproxy_outl$ambiguous == "N" & LDproxy_outl$bedcov == TRUE & LDproxy_outl$ldproxy_flag == "Y")] <- "N"
+rm_flag[(LDproxy_outl$ambiguous == "N" & LDproxy_outl$bedcov == FALSE & LDproxy_outl$ldproxy_flag == "N")] <- "N"
+rm_flag[is.na(LDproxy_outl$bedcov)] <- "Y"
 LDproxy_outlf <- cbind(LDproxy_outl, rm_flag)
 
 LDproxy_outlf$rm_flag[is.na(LDproxy_outlf$rm_flag)] <- "Y"
@@ -442,6 +456,10 @@ message("[12/12] Generating NIMPRESS input file...")
 
 ## seperte kept from removed
 interm_keep <-  interm[interm$FLAG.RM == "N",]
+
+if(nrow(interm_keep) == 0){
+  stop("No rsIDs remaining after filtering. Please check intermediate file to determine cause")
+}
 
 ##########################################################
 ## FOR BEDCOV == FALSE and not removed due to ambiguity ##
