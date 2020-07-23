@@ -5,7 +5,9 @@
 Located in the same dir are the following dependencies:
 - Nimpress_preprocess_functions.R script containing dependent functions
 - Suppl data is located and downloaded to the Suppl folder 
-- Output dir Nimpress_preprocess_Output 
+- Output dir Nimpress_preprocess_Output created in this location
+
+Therefore the preprocessing script needs to be invoked in the folder it is downloaded to
 
 General note:
 - Only works on genome build version GRCh37
@@ -55,22 +57,22 @@ Intermediate file that can be used for debugging has suffix Intermediate_results
 The preprocessing script can be run in three different modes. 
 
 The most basic requires only the input file and description and citation parameters 
-Rscript Nimpress_preprocess.R --file ./Example/Example_GWAS_Summary_file_updated_nop.csv --description "Example file" --citation "Authors et al., (2020) Title. Journal"
+Rscript Nimpress_preprocess.R --file ./Example/Example_File_to_process.csv --description "Example file" --citation "Authors et al., (2020) Title. Journal"
 
 This will:
 - convert OR to Beta via log transformation
 - query dbSNP to get the rsID chromosomal locations and reference allele (REF) and alternative allele (ALT)
 - rsIDs which don't represent SNVs will be treated as unusable
 - BSgenome.Hsapiens.UCSC.hg19 will be used to obtained the strand
-- risk allele will be checked against the above to determine whether the allele is ambigious (risk allele is equal to one of REF or ALT and complement of either REF or ALT) and whether strand flipping has occured (risk allele the same as the complement of REF or ALT). Ambiguous alleles are removed further analysis and won't appear in the output. While strand filling will be corrected
+- risk allele will be checked against the above to determine whether the allele is ambigious (risk allele is equal to one of REF or ALT and complement of either REF or ALT) and whether strand flipping has occured (risk allele is same as the complement of REF or ALT). Ambiguous alleles are removed from further analysis and won't appear in the output. While strand filling will be corrected.
 
 An extension is enabled by specifying parameters related to a blacklisted bed file containing genomic coordinates of regions that are diffictul to sequence. 
 
-Using the default file (GIAB v2.0 stratification BED file  https://github.com/genome-in-a-bottle/genome-stratifications)
-Rscript Nimpress_preprocess.R --file ./Example/Example_GWAS_Summary_file_updated_nop.csv --description "Example file" --citation "Authors et al., (2020) Title. Journal" --remove_blacklisted_regions
+Using the default file (GIAB v2.0 stratification BED file:  https://github.com/genome-in-a-bottle/genome-stratifications)
+Rscript Nimpress_preprocess.R --file ./Example/Example_File_to_process.csv --description "Example file" --citation "Authors et al., (2020) Title. Journal" --remove_blacklisted_regions
 
 Using a supplied bed file:
-Rscript Nimpress_preprocess.R --file ./Example/Example_GWAS_Summary_file_updated_nop.csv --description "Example file" --citation "Authors et al., (2020) Title. Journal" --blacklisted_regions_file inhouse_blacklisted_bed.bed
+Rscript Nimpress_preprocess.R --file ./Example/Example_File_to_process.csv --description "Example file" --citation "Authors et al., (2020) Title. Journal" --blacklisted_regions_file inhouse_blacklisted_bed.bed
 
 This will:
 - perform the same action as basic functionality
@@ -78,9 +80,9 @@ This will:
 
 Full functionality of the preprocessing script is invoked by providing parameters related to LDproxy:
 
-Rscript Nimpress_preprocess.R --file ./Example/Example_GWAS_Summary_file_updated_nop.csv --description "Example file" --citation "Authors et al., (2020) Title. Journal" --remove_blacklisted_regions --LDproxy_pop GBR --LDproxy_token abcdef
+Rscript Nimpress_preprocess.R --file ./Example/Example_File_to_process.csv --description "Example file" --citation "Authors et al., (2020) Title. Journal" --remove_blacklisted_regions --LDproxy_pop GBR --LDproxy_token abcdef
 
-Rscript Nimpress_preprocess.R --file ./Example/Example_GWAS_Summary_file_updated_nop.csv --description "Example file" --citation "Authors et al., (2020) Title. Journal" --blacklisted_regions_file inhouse_blacklisted_bed.bed --LDproxy_pop GBR --LDproxy_token abcdef
+Rscript Nimpress_preprocess.R --file ./Example/Example_File_to_process.csv --description "Example file" --citation "Authors et al., (2020) Title. Journal" --blacklisted_regions_file inhouse_blacklisted_bed.bed --LDproxy_pop GBR --LDproxy_token abcdef
 
 This will:
 - perform the same action as above with the addition of substituting those rsIDs which fall into the blacklisted bed regions with another rsID that has a linkage disequalibrium R-squared value > 0.9
